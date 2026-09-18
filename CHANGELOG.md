@@ -1,6 +1,10 @@
 # Changelog
 
-## 0.2.0 — 2026-09-18
+## 0.2.0 — 2026-09-18 (re-released: CI fix)
+
+### CI
+- `aquasecurity/trivy-action@0.28.0` больше не резолвится → пин по SHA `v0.36.0` (верифицированный коммит); `ubuntu-24.04` вместо мигрирующего `ubuntu-latest`
+- образ: вырезаны npm/yarn/corepack (в их транзитивных пакетах trivy находил CRITICAL/HIGH — tar CVE-2026-59873, pacote, picomatch, sigstore, brace-expansion); openssl обновлён до фикса CVE-2026-14456/45447 → скан образа чист
 
 ### Fixed
 - `discover` source: raw querystring was spread as a string → garbage params; now parsed via `URLSearchParams`

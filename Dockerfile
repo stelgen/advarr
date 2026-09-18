@@ -23,10 +23,20 @@ ENV NODE_ENV=production \
     ADVARR_DATA_DIR=/app/data \
     TZ=UTC
 
-# tini: signal handling; ca-certificates: TMDB/seerr TLS
-RUN apk add --no-cache tini ca-certificates \
+# tini: signal handling; ca-certificates: TMDB/seerr TLS;
+# libcrypto3/libssl3: bump openssl to latest repo version (CVE-2026-14456/45447)
+RUN apk add --no-cache tini ca-certificates libcrypto3 libssl3 \
     && addgroup -g 10001 -S advarr \
-    && adduser -u 10001 -S -D -H -G advarr -s /sbin/nologin advarr
+    && adduser -u 10001 -S -D -H -G advarr -s /sbin/nologin advarr \
+    # app is zero-deps: npm/yarn/corepack never run in production —
+    # strip them along with npm's own vulnerable transitive packages
+    # (pacote/tar/picomatch/sigstore/brace-expansion flagged by trivy)
+    && rm -rf /usr/local/lib/node_modules/npm \
+              /usr/local/lib/node_modules/corepack \
+              /opt/yarn* \
+              /usr/local/bin/npm /usr/local/bin/npx \
+              /usr/local/bin/yarn /usr/local/bin/yarnpkg \
+              /usr/local/bin/corepack
 
 WORKDIR /app
 
