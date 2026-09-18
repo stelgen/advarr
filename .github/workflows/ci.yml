@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04   # pinned: ubuntu-latest migrates to Ubuntu 26 in Oct 2026
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -25,7 +25,7 @@ jobs:
 
   docker:
     needs: test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
       packages: write
@@ -54,7 +54,8 @@ jobs:
           docker rm -f advarr-smoke
 
       - name: Trivy security scan
-        uses: aquasecurity/trivy-action@0.28.0
+        # pinned by commit SHA (v0.36.0); tags like @0.28.0 no longer resolve
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
         with:
           image-ref: advarr:ci
           format: table
@@ -80,6 +81,6 @@ jobs:
           tags: |
             ghcr.io/${{ github.repository }}:latest
             ghcr.io/${{ github.repository }}:${{ github.sha }}
-            ghcr.io/${{ github.repository }}:${{ (github.ref_name != 'main' && github.ref_name) || format('0.1.0') }}
+            ghcr.io/${{ github.repository }}:${{ github.ref_name }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
