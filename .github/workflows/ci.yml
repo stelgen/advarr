@@ -59,9 +59,15 @@ jobs:
         with:
           image-ref: advarr:ci
           format: table
+          output: /tmp/trivy-report.txt
           exit-code: '1'
           ignore-unfixed: true
           severity: HIGH,CRITICAL
+
+      - name: Publish Trivy report to job summary
+        if: always()
+        run: |
+          { echo "## Trivy (HIGH/CRITICAL, unfixed) — image advarr:ci"; tail -60 /tmp/trivy-report.txt 2>/dev/null || echo '(report file missing)'; } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Login to GHCR
         if: github.event_name != 'pull_request'
