@@ -29,10 +29,10 @@ RUN apk add --no-cache tini ca-certificates \
 
 WORKDIR /app
 
-# app code (tiny; copied as-is, owner root, world-readable)
-COPY --chown=root:advarr --chmod=0640 server.js package.json LICENSE ./
-COPY --chown=root:advarr --chmod=0640 lib/ ./lib/
-COPY --chown=root:advarr --chmod=0640 public/ ./public/
+# app code (tiny, no secrets inside; owner root, group advarr)
+COPY --chown=root:advarr server.js package.json LICENSE ./
+COPY --chown=root:advarr lib/ ./lib/
+COPY --chown=root:advarr public/ ./public/
 
 RUN mkdir -p /app/data && chown advarr:advarr /app/data
 
