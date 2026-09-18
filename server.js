@@ -18,7 +18,7 @@ import { createNotify } from './lib/notify.js';
 import { createBackupManager } from './lib/backup.js';
 import { makeOutboundFetch } from './lib/proxy.js';
 
-const APP_VERSION = '0.3.0';
+const APP_VERSION = '0.3.1';
 const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
 const DATA_DIR = process.env.ADVARR_DATA_DIR || path.join(__dirname, 'data');
 

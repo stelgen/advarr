@@ -4,10 +4,10 @@
 
 # Advarr
 
-**Пассивный радар трендов для твоего \*arr-стека.** По таймеру сканирует TMDB
-(тренды, популярное, топ-рейтинг), фильтрует «нормисский шум» по твоим правилам
-и сам создаёт запросы в **Jellyseerr / Overseerr** через API.
-Пока ты не трогаешь ничего — очередь запросов пополняется сама.
+**Пассивный радар трендов для \*arr-стека.** По расписанию сканирует TMDB
+(тренды, популярное, топ-рейтинг), отбирает кандидатов по настраиваемым правилам
+и автоматически создаёт запросы в **Jellyseerr / Overseerr** через API.
+Достаточно один раз настроить фильтры — очередь запросов пополняется сама.
 
 `docker` · `zero npm-deps` · `Node 22` · `MIT`
 
@@ -19,19 +19,19 @@
 
 ## Что это
 
-Advarr сидит между TMDB и твоим Seerr и делает ровно одну вещь: **периодически находи и проси**.
+Advarr работает между TMDB и Seerr и решает одну задачу: **регулярно находить актуальное и отправлять в очередь**.
 
-- ⏱ **Таймер**: раз в N часов (с джиттером ±M мин, чтобы не бить по API в такт с миром).
-- 🌍 **Источники «шума»**: `trending/day`, `trending/week`, `popular`, `top_rated`, `now_playing`, `upcoming`, `discover` (свои параметры) — у каждого тумблер и вес.
+- ⏱ **Расписание**: раз в N часов (с джиттером ±M минут, чтобы не создавать пиковую нагрузку на API).
+- 🌍 **Источники**: `trending/day`, `trending/week`, `popular`, `top_rated`, `now_playing`, `upcoming`, `discover` (свои параметры) — у каждого тумблер и вес.
 - 🎚 **Фильтры**: минимальный рейтинг и число голосов, годы, языки оригинала, включённые/исключённые жанры, 18+.
-- 🧮 **Скоринг**: настраиваемые веса (рейтинг / популярность / голоса / свежесть / любимые жанры) — теперь «нашумевшее» определяется твоими правилами, а не глобальным миндом TMDB.
-- 🔁 **Без повторов**: дедуп по локальной истории + всем существующим запросам в Seerr + опциональная проверка статуса медиа (pending/available → скип).
+- 🧮 **Скоринг**: настраиваемые веса (рейтинг / популярность / голоса / свежесть / любимые жанры) — критерии «нашумевшего» определяются вашими правилами, а не глобальными алгоритмами TMDB.
+- 🔁 **Без повторов**: дедуп по локальной истории + всем существующим запросам в Seerr + опциональная проверка статуса медиа (pending/available → исключение).
 - 🔔 **Уведомления**: Telegram и Webhook (Discord/ntfy) — сводка после каждого прогона.
-- ♻️ **Ретрай-политика**: провалы повторяются после cooldown (настраивается).
-- 🧮 **Статусы Seerr в UI**: бейджи «В ожидании / Обрабатывается / Доступно» у кандидатов.
-- 💾 **Бэкапы как в \*arr**: снапшоты настроек/истории, восстановление на лету без рестарта.
-- ⚙️ **General-настройки как у Radarr**: адрес/порт (live), Basic/API-ключ, **исходящий прокси** (CONNECT-туннель + bypass-лист), уровень логов.
-- 🖥 **Radarr-подобная веб-морда**: сайдбар, карточки с постерами и score-бейджами, история, логи, все настройки в UI.
+- ♻️ **Ретрай-политика**: неудавшиеся запросы повторяются после cooldown (настраивается).
+- 🧮 **Статусы Seerr в интерфейсе**: бейджи «В ожидании / Обрабатывается / Доступно» у кандидатов.
+- 💾 **Бэкапы в стиле \*arr**: снапшоты настроек и истории, восстановление на лету без перезапуска.
+- ⚙️ **Общие настройки как в Radarr**: адрес/порт (применяются без перезапуска), Basic/API-ключ, **исходящий прокси** (CONNECT-туннель + список исключений), уровень логов.
+- 🖥 **Интерфейс в стиле Radarr**: сайдбар, карточки с постерами и score-бейджами, история, логи, все настройки в UI.
 - 🐳 **Docker**: zero-deps образ, non-root, read-only rootfs, healthcheck, GHCR multi-arch.
 
 ## Как это работает
@@ -57,15 +57,15 @@ Advarr сидит между TMDB и твоим Seerr и делает ровно
 mkdir advarr && cd advarr
 curl -O https://raw.githubusercontent.com/stelgen/advarr/main/docker-compose.yml
 curl -o .env https://raw.githubusercontent.com/stelgen/advarr/main/.env.example
-# заполни TMDB_API_KEY (themoviedb.org → Settings → API) и SEERR_URL/SEERR_API_KEY
+# укажите TMDB_API_KEY (themoviedb.org → Settings → API) и SEERR_URL/SEERR_API_KEY
 docker compose up -d
 ```
 
-Открой `http://localhost:8787` → **Настройки** → проверь TMDB и Seerr кнопками
+Откройте `http://localhost:8787` → **Настройки** → проверьте TMDB и Seerr кнопками
 **Проверить** → **Сохранить** → **Подборка** → **Обновить подборку** (пробный прогон).
 
-> 💡 Ключи можно вообще не вносить руками в UI: `TMDB_API_KEY`, `SEERR_URL`,
-> `SEERR_API_KEY` из env засеиваются в конфиг при первом старте (потом UI-правки главнее).
+> 💡 Ключи можно не вводить вручную: `TMDB_API_KEY`, `SEERR_URL`,
+> `SEERR_API_KEY` из env переносятся в конфиг при первом старте (в дальнейшем изменения в UI имеют приоритет).
 
 ### docker run
 
@@ -81,7 +81,7 @@ docker run -d --name advarr \
 
 ## Скриншоты
 
-| Обзор | Подборка (dry-run) | Общие (как у Radarr) |
+| Обзор | Подборка (dry-run) | Общие (как в Radarr) |
 |---|---|---|
 | ![Обзор](docs/screenshots/overview.png) | ![Подборка](docs/screenshots/discovery.png) | ![Общие](docs/screenshots/settings-general.png) |
 
@@ -89,58 +89,59 @@ docker run -d --name advarr \
 |---|---|---|
 | ![Уведомления](docs/screenshots/settings-notifications.png) | ![Бэкапы](docs/screenshots/settings-backups.png) | ![Источники](docs/screenshots/settings-sources.png) |
 
-## За reverse-proxy (nginx/traefik)
+## Reverse-proxy (nginx/traefik)
 
-Нормально себя чувствует: без вебсокетов и sticky-сессий. Подними `proxy_read_timeout` до 300s
-dля длинных dry-рuv-прогонов и выставь `TRUST_PROXY=1`, чтобы rate-limit видел реальные IP —
+Advarr не использует WebSocket-соединения и не требует sticky-сессий, поэтому корректно
+работает за обратным прокси. Увеличьте `proxy_read_timeout` до 300s для продолжительных
+dry-run-прогонов и задайте `TRUST_PROXY=1`, чтобы rate-limit видел реальные IP-адреса —
 подробности в [docs/REVERSE-PROXY.md](docs/REVERSE-PROXY.md).
 
 ## Настройка
 
-Всё — в веб-морде (разделы как в *arr): **Jellyseerr/Overseerr · TMDB · Расписание · Выборка · Фильтры · Источники · Скоринг**.
+Все параметры — в веб-интерфейсе (разделы по образцу \*arr): **Media Server · TMDB · Расписание · Выборка · Фильтры · Источники · Скоринг · Уведомления · Бэкапы · Интерфейс · Общие**.
 
-| Env (сид/секреты) | По умолчанию | Описание |
+| Env (первичный сид/секреты) | По умолчанию | Описание |
 |---|---|---|
 | `ADVARR_PORT` | `8787` | Порт |
 | `ADVARR_DATA_DIR` | `/app/data` | Каталог данных (`config/history/runs.json`) |
 | `TMDB_API_KEY` | — | Ключ TMDB v3 |
 | `SEERR_URL` | — | Базовый URL Jellyseerr/Overseerr |
 | `SEERR_API_KEY` | — | API-ключ Seerr |
-| `BASIC_AUTH_USER` / `BASIC_AUTH_PASS` | — | Basic-Auth на веб-морду |
+| `BASIC_AUTH_USER` / `BASIC_AUTH_PASS` | — | Basic-Auth для веб-интерфейса |
 | `ADVARR_API_KEY` | — | Альтернатива Basic: `X-Api-Key` |
-| `TRUST_PROXY` | — | `1` = доверять `X-Forwarded-For` (только за своим прокси) |
+| `TRUST_PROXY` | — | `1` = доверять `X-Forwarded-For` (только за доверенным прокси) |
 
 Логика выборки: пул кандидатов со включённых источников → фильтры → дедуп
 (история + `GET /api/v1/request` в Seerr) → скоринг → квота `moviesPerRun`/`showsPerRun` →
-`POST /api/v1/request` (сериалы: все сезоны или только 1-й — настройка `tvSeasons`).
+`POST /api/v1/request` (сериалы: все сезоны или только первый — настройка `tvSeasons`).
 
 ## Безопасность / Hardening
 
-- Ноль npm-зависимостей → минимальная поверхность атаки; база `node:22-alpine` пинится.
-- Non-root (uid 10001), `tini`, совместимо с `read_only: true` + `tmpfs` для `/tmp`.
-- `cap_drop: ALL`, `no-new-privileges`, лимит логов — всё уже в `docker-compose.yml`.
-- Строгий CSP без внешних CDN; постеры проксируются через `/img/poster` (не палит ключи, не светит IP).
-- Rate-limit + таймбоди-лимиты + `timingSafeEqual` на проверке секретов.
-- Trivy в CI валит билд на HIGH/CRITICAL. Подробности: [docs/SECURITY.md](docs/SECURITY.md).
+- Ноль npm-зависимостей — минимальная поверхность атаки; базовый образ `node:22-alpine` зафиксирован по digest.
+- Non-root (uid 10001), `tini`, совместимость с `read_only: true` + `tmpfs` для `/tmp`.
+- `cap_drop: ALL`, `no-new-privileges`, ограничение логов — включены в `docker-compose.yml`.
+- Строгий CSP без внешних CDN; постеры проксируются через `/img/poster` — ключи не раскрываются, IP клиента не публикуется.
+- Rate-limit, ограничение размера тела запроса, `timingSafeEqual` при проверке секретов.
+- Trivy в CI прерывает сборку при HIGH/CRITICAL. Подробнее: [docs/SECURITY.md](docs/SECURITY.md).
 
 ## Разработка
 
 ```bash
 git clone git@github.com:stelgen/advarr.git && cd advarr
-node server.js            # dev-старт: http://localhost:8787
+node server.js            # запуск в dev-режиме: http://localhost:8787
 npm test                  # unit + e2e (node:test, без внешней сети)
-python3 scripts/gen_brand.py   # перегенерация логотипа/баннера
+python3 scripts/gen_brand.py   # перегенерация логотипа и баннера
 ```
 
 API-контракт: [docs/API.md](docs/API.md) · Дизайн-референс: Radarr/Sonarr.
 
 ## Roadmap
 
-- [ ] Trakt.tv как источник «нормисского шума»
-- [ ] Поддержка прямых API Radarr/Sonarr (в обход Seerr)
-- [ ] Списки TMDB (watchlists юзеров, премии)
-- [ ] Уведомления (Telegram/Discord webhook)
-- [ ] Экспорт/импорт конфига
+- [ ] Учёт просмотренного в Jellyfin при дедупликации
+- [ ] Trakt.tv как дополнительный источник
+- [ ] Прямая интеграция с API Radarr/Sonarr (в обход Seerr)
+- [ ] Списки TMDB (watchlist, награды и премии)
+- [ ] Экспорт/импорт конфигурации (JSON)
 
 ## Лицензия
 
@@ -148,4 +149,4 @@ MIT — см. [LICENSE](LICENSE).
 
 ---
 
-<div align="center"><sub>Сделано с 📡 для домашнего медиа-стека. TMDB — сторонний сервис, Advarr не аффилирован с TMDB/Overseerr/Jellyseerr.</sub></div>
+<div align="center"><sub>Разработано для домашнего медиа-стека. TMDB — сторонний сервис; Advarr не аффилирован с TMDB, Overseerr или Jellyseerr.</sub></div>

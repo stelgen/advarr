@@ -18,9 +18,9 @@ export async function render(view, status) {
         <img src="/logo.svg" width="64" height="64" alt="Advarr" style="border-radius:14px">
         <div>
           <h3 style="margin:0">Advarr <span class="muted">${esc(s.version || '')}</span></h3>
-          <p class="muted" style="max-width:640px">Пассивный радар трендов: по таймеру сканирует TMDB, фильтрует и скорит кандидатов
-          по твоим правилам, дедуплицирует против истории и запросов Seerr и создаёт запросы в Jellyseerr/Overseerr.
-          Ты — задают правила; очередь запросов пополняется сама.</p>
+          <p class="muted" style="max-width:640px">Пассивный радар трендов: по расписанию сканирует TMDB, отбирает и оценивает кандидатов
+          по настраиваемым правилам, исключает уже запрошенное (история + Seerr) и автоматически создаёт
+          запросы в Jellyseerr/Overseerr. Правила задаёте вы — очередь пополняется сама.</p>
           <div class="row">
             <a class="btn" href="https://github.com/stelgen/advarr" target="_blank" rel="noopener noreferrer">GitHub ↗</a>
             <a class="btn" href="https://developer.themoviedb.org/reference/getting-started" target="_blank" rel="noopener noreferrer">TMDB API ↗</a>

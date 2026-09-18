@@ -15,7 +15,7 @@ LABEL org.opencontainers.image.title="Advarr" \
       org.opencontainers.image.description="Passive TMDB discovery radar for Jellyseerr/Overseerr" \
       org.opencontainers.image.source="https://github.com/stelgen/advarr" \
       org.opencontainers.image.licenses="MIT" \
-      org.opencontainers.image.version="0.2.0"
+      org.opencontainers.image.version="0.3.1"
 
 ENV NODE_ENV=production \
     NODE_OPTIONS="--disable-proto=throw --insecure-http-parser=false" \
