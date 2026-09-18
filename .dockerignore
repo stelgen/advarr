@@ -1,0 +1,21 @@
+# VCS / CI
+.git
+.github
+.gitignore
+
+# data & local artifacts
+data/
+*.log
+.env
+.env.*
+
+# docs & CI are not needed inside image
+docs/
+test/
+node_modules/
+npm-debug.log*
+README.md
+
+# OS junk
+.DS_Store
+Thumbs.db

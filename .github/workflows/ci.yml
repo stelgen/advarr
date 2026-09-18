@@ -1,0 +1,85 @@
+name: ci
+
+on:
+  push:
+    branches: [main, master]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax check
+        run: for f in server.js lib/*.js; do node --check "$f"; done
+      - name: Unit + e2e tests
+        run: node --test test/
+
+  docker:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build (validate)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: advarr:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Smoke (container boots + health)
+        run: |
+          docker run -d --name advarr-smoke -p 8787:8787 advarr:ci
+          for i in $(seq 1 20); do
+            if curl -fsS http://127.0.0.1:8787/api/v1/health | grep -q '"ok":true'; then
+              echo "healthy"; break
+            fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:8787/api/v1/health
+          docker rm -f advarr-smoke
+
+      - name: Trivy security scan
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: advarr:ci
+          format: table
+          exit-code: '1'
+          ignore-unfixed: true
+          severity: HIGH,CRITICAL
+
+      - name: Login to GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push image (main + tags)
+        if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/'))
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}:latest
+            ghcr.io/${{ github.repository }}:${{ github.sha }}
+            ghcr.io/${{ github.repository }}:${{ (github.ref_name != 'main' && github.ref_name) || format('0.1.0') }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

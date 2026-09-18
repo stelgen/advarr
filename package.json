@@ -1,0 +1,26 @@
+{
+  "name": "advarr",
+  "version": "0.1.0",
+  "description": "Advarr — passive TMDB discovery radar: periodically finds trending movies & shows and auto-requests them into Jellyseerr/Overseerr.",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "test": "node --test test/"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "keywords": [
+    "radarr", "sonarr", "jellyseerr", "overseerr", "seerr", "tmdb",
+    "docker", "arr", "selfhosted", "discovery"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/stelgen/advarr.git"
+  },
+  "bugs": { "url": "https://github.com/stelgen/advarr/issues" },
+  "private": true
+}
