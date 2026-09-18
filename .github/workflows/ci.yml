@@ -21,7 +21,7 @@ jobs:
       - name: Syntax check
         run: for f in server.js lib/*.js; do node --check "$f"; done
       - name: Unit + e2e tests
-        run: node --test test/*.test.js
+        run: node --test --test-concurrency=1 test/*.test.js
 
   docker:
     needs: test

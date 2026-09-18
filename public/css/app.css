@@ -121,6 +121,9 @@ h3 { margin: 0 0 12px; }
   display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   gap: 14px;
 }
+.grid-cards.compact { grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 10px; }
+.grid-cards.compact .pcard .title { font-size: 12.5px; }
+.grid-cards.no-scores .score { display: none; }
 .pcard {
   position: relative; background: var(--bg2); border: 1px solid var(--border);
   border-radius: var(--radius); overflow: hidden; transition: transform .16s, border-color .16s;
@@ -136,6 +139,10 @@ h3 { margin: 0 0 12px; }
 }
 .badge-movie { color: #8fb8ff; } .badge-tv { color: #d5a8ff; }
 .chip-mini { font-size: 10.5px; background: var(--bg3); border: 1px solid var(--border); border-radius: 5px; padding: 1px 6px; color: var(--muted); }
+.mst-pending { color: var(--amber); border-color: rgba(240,168,60,.4); }
+.mst-processing { color: #8fb8ff; border-color: rgba(143,184,255,.4); }
+.mst-partial { color: #d5a8ff; border-color: rgba(213,168,255,.4); }
+.mst-available { color: var(--green); border-color: rgba(47,191,113,.4); }
 .score {
   position: absolute; top: 8px; right: 8px;
   min-width: 34px; height: 34px; border-radius: 50%;

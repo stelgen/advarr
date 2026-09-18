@@ -62,6 +62,19 @@ async function load() {
   }));
 }
 
+const MEDIA_STATUS = {
+  2: { label: 'В ожидании', cls: 'mst-pending' },
+  3: { label: 'Обрабатывается', cls: 'mst-processing' },
+  4: { label: 'Частично доступно', cls: 'mst-partial' },
+  5: { label: 'Уже доступно', cls: 'mst-available' },
+};
+
+function statusChip(c) {
+  const st = c.mediaStatus ?? 1;
+  const m = MEDIA_STATUS[st];
+  return m ? `<span class="chip-mini ${m.cls}">${m.label}</span>` : '';
+}
+
 function card(c) {
   const type = c.mediaType === 'tv' ? 'Сериал' : 'Фильм';
   return `
@@ -75,6 +88,7 @@ function card(c) {
         <span class="muted" style="font-size:12px">${c.year || '—'}</span>
       </div>
       <div class="meta">
+        ${statusChip(c)}
         ${c.sources.map((s) => `<span class="chip-mini">${SOURCE_LABELS[s] || s}</span>`).join('')}
       </div>
     </div>
@@ -102,6 +116,7 @@ async function showDetails(c) {
           <b>Популярность</b><span>${Math.round(c.popularity)}</span>
           <b>Язык</b><span>${esc(c.originalLanguage)}</span>
           <b>Жанры</b><span>${names.length ? names.map(esc).join(', ') : '—'}</span>
+          <b>Статус в Seerr</b><span>${MEDIA_STATUS[c.mediaStatus ?? 1]?.label || 'Не отслеживается'}</span>
           <b>Источники</b><span>${c.sources.map((s) => SOURCE_LABELS[s] || s).join(', ')}</span>
           <b>TMDB</b><span><a href="https://www.themoviedb.org/${c.mediaType}/${c.id}" target="_blank" rel="noopener noreferrer">открыть ↗</a></span>
         </div>

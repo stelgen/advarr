@@ -10,13 +10,24 @@ import { mkTmp } from './helpers.js';
 
 test('defaultConfig: all sections and key fields exist', () => {
   const cfg = defaultConfig();
-  for (const section of ['version', 'tmdb', 'seerr', 'schedule', 'selection', 'filters', 'sources', 'scoring', 'ui']) {
+  for (const section of ['version', 'tmdb', 'seerr', 'schedule', 'selection', 'filters', 'sources', 'scoring', 'ui', 'general', 'notify', 'backups']) {
     assert.ok(section in cfg, `missing section: ${section}`);
   }
-  assert.equal(cfg.version, 1);
+  assert.equal(cfg.version, 2);
+  for (const key of ['host', 'port', 'logLevel', 'authentication', 'proxy']) {
+    assert.ok(key in cfg.general, `general.${key} missing`);
+  }
+  for (const key of ['method', 'username', 'password', 'apiKey', 'envSeeded']) {
+    assert.ok(key in cfg.general.authentication, `authentication.${key} missing`);
+  }
+  for (const key of ['enabled', 'host', 'port', 'httpsOnly', 'username', 'password', 'bypassAddresses']) {
+    assert.ok(key in cfg.general.proxy, `proxy.${key} missing`);
+  }
+  assert.deepEqual(cfg.notify.providers, []);
   assert.deepEqual(Object.keys(cfg.tmdb).sort(), ['apiKey', 'language', 'region']);
   assert.deepEqual(Object.keys(cfg.seerr).sort(), ['apiKey', 'tvSeasons', 'url']);
   assert.deepEqual(cfg.selection.mediaTypes, ['movie', 'tv']);
+  assert.ok('retryCooldownDays' in cfg.schedule);
   assert.deepEqual(Object.keys(cfg.filters).sort(), [
     'checkAvailability', 'excludeGenres', 'excludeInSeerr', 'includeAdult', 'includeGenres',
     'languages', 'minRating', 'minVotes', 'yearFrom', 'yearTo',

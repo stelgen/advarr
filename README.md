@@ -26,6 +26,11 @@ Advarr сидит между TMDB и твоим Seerr и делает ровно
 - 🎚 **Фильтры**: минимальный рейтинг и число голосов, годы, языки оригинала, включённые/исключённые жанры, 18+.
 - 🧮 **Скоринг**: настраиваемые веса (рейтинг / популярность / голоса / свежесть / любимые жанры) — теперь «нашумевшее» определяется твоими правилами, а не глобальным миндом TMDB.
 - 🔁 **Без повторов**: дедуп по локальной истории + всем существующим запросам в Seerr + опциональная проверка статуса медиа (pending/available → скип).
+- 🔔 **Уведомления**: Telegram и Webhook (Discord/ntfy) — сводка после каждого прогона.
+- ♻️ **Ретрай-политика**: провалы повторяются после cooldown (настраивается).
+- 🧮 **Статусы Seerr в UI**: бейджи «В ожидании / Обрабатывается / Доступно» у кандидатов.
+- 💾 **Бэкапы как в \*arr**: снапшоты настроек/истории, восстановление на лету без рестарта.
+- ⚙️ **General-настройки как у Radarr**: адрес/порт (live), Basic/API-ключ, **исходящий прокси** (CONNECT-туннель + bypass-лист), уровень логов.
 - 🖥 **Radarr-подобная веб-морда**: сайдбар, карточки с постерами и score-бейджами, история, логи, все настройки в UI.
 - 🐳 **Docker**: zero-deps образ, non-root, read-only rootfs, healthcheck, GHCR multi-arch.
 
@@ -76,9 +81,13 @@ docker run -d --name advarr \
 
 ## Скриншоты
 
-| Обзор | Подборка (dry-run) | Настройки |
+| Обзор | Подборка (dry-run) | Общие (как у Radarr) |
 |---|---|---|
-| ![Обзор](docs/screenshots/overview.png) | ![Подборка](docs/screenshots/discovery.png) | ![Настройки](docs/screenshots/settings-sources.png) |
+| ![Обзор](docs/screenshots/overview.png) | ![Подборка](docs/screenshots/discovery.png) | ![Общие](docs/screenshots/settings-general.png) |
+
+| Уведомления | Бэкапы | Источники |
+|---|---|---|
+| ![Уведомления](docs/screenshots/settings-notifications.png) | ![Бэкапы](docs/screenshots/settings-backups.png) | ![Источники](docs/screenshots/settings-sources.png) |
 
 ## За reverse-proxy (nginx/traefik)
 

@@ -48,18 +48,20 @@ async function listen(app) {
   return server;
 }
 
-test('client ip: XFF ignored by default, honored with trustProxy', async () => {
+test('client ip: XFF ignored by default, honored with trustProxy', async (t) => {
+  const servers = [];
+  t.after(() => { for (const s of servers) s.close(); });
   for (const [trustProxy, expected] of [[false, '127.0.0.1'], [true, '9.9.9.9']]) {
     const app = createApp({ trustProxy });
     app.get('/api/v1/whoami', (ctx) => json(ctx, { ip: ctx.ip }));
     const server = await listen(app);
+    servers.push(server);
     const port = server.address().port;
     const res = await fetch(`http://127.0.0.1:${port}/api/v1/whoami`, {
       headers: { 'X-Forwarded-For': '9.9.9.9, 10.0.0.1' },
     });
     const body = await res.json();
     assert.equal(body.ip, expected);
-    server.close();
   }
 });
 

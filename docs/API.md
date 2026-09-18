@@ -1,5 +1,18 @@
 # Advarr API v1 (internal contract)
 
+## v0.3.0 additions
+- `GET /api/v1/backup` → `{items:[{id,name,size,modifiedAt}]}`
+- `POST /api/v1/backup` → 201 `{id,name,size,modifiedAt}` (снапшот config+history+runs, ротация maxKeep)
+- `DELETE /api/v1/backup/:id` → `{ok}`
+- `GET /api/v1/backup/:id/download` → файл
+- `POST /api/v1/backup/:id/restore` → `{ok, rebound}` — применяется на лету
+- `POST /api/v1/notify/test` ← `{provider}` → `{ok, message}`
+- `PUT /api/v1/settings` → `{...config, rebound:{changed,host,port}}` — смена general.host/port перебиндивает слушатель (409, если порт занят)
+- config v2: `general{host,port,authentication,proxy,logLevel}`, `notify.providers[]`, `backups.maxKeep`, `schedule.retryCooldownDays`, `ui{gridDensity,showScores}`
+- dry-run items содержат `mediaStatus` (1..5 по Overseerr)
+
+Общий контракт ниже актуален для v0.2.x и выше.
+
 Base: `/api/v1`. All JSON. Auth (if enabled via env `BASIC_AUTH_USER`/`BASIC_AUTH_PASS` or `ADVARR_API_KEY`): Basic auth or `X-Api-Key` header / `?apikey=`.
 
 ## GET /api/v1/status
