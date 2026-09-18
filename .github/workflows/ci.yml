@@ -24,8 +24,8 @@ jobs:
         run: |
           set -o pipefail
           node --test --test-concurrency=1 test/*.test.js 2>&1 | tee /tmp/test-out.txt | grep -E '^(ok|not ok|# (tests|pass|fail|cancelled))' || true
-          if grep -q '^not ok' /tmp/test-out.txt; then
-            grep -A6 '^not ok' /tmp/test-out.txt | head -40 | while IFS= read -r line; do echo "::error::$line"; done
+          if grep -Eq '^\s*not ok' /tmp/test-out.txt; then
+            grep -E '^\s*not ok' -A12 /tmp/test-out.txt | head -80 | while IFS= read -r line; do echo "::error::$line"; done
             exit 1
           fi
 
