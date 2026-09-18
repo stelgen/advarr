@@ -3,161 +3,63 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="color-scheme" content="dark">
-  <meta name="theme-color" content="#141416">
+  <title>Advarr — радар трендов</title>
+  <meta property="og:title" content="Advarr">
+  <meta property="og:description" content="Пассивный радар трендов для твоего *arr-стека">
+  <meta property="og:image" content="/og.png">
   <meta name="robots" content="noindex, nofollow">
-  <title>Advarr</title>
-  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/css/app.css">
 </head>
 <body>
-
-  <!-- SVG-иконки (спрайт; CSP разрешает инлайн-SVG в разметке) -->
-  <svg class="svg-defs" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
-    <symbol id="i-overview" viewBox="0 0 24 24">
-      <rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/>
-      <rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/>
-    </symbol>
-    <symbol id="i-discover" viewBox="0 0 24 24">
-      <circle cx="12" cy="12" r="9.5"/><polygon points="15.5 8.5 13.4 13.4 8.5 15.5 10.6 10.6 15.5 8.5"/>
-    </symbol>
-    <symbol id="i-history" viewBox="0 0 24 24">
-      <path d="M3 12a9 9 0 1 0 3.2-6.9"/><polyline points="3 4 3 8 7 8"/><polyline points="12 7.5 12 12 15.4 14.2"/>
-    </symbol>
-    <symbol id="i-settings" viewBox="0 0 24 24">
-      <circle cx="12" cy="12" r="3"/>
-      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-    </symbol>
-    <symbol id="i-logs" viewBox="0 0 24 24">
-      <polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/>
-    </symbol>
-    <symbol id="i-about" viewBox="0 0 24 24">
-      <circle cx="12" cy="12" r="9.5"/><line x1="12" y1="11" x2="12" y2="16.5"/><line x1="12" y1="7.5" x2="12" y2="7.51"/>
-    </symbol>
-    <symbol id="i-play" viewBox="0 0 24 24">
-      <polygon points="7 4.5 19 12 7 19.5 7 4.5"/>
-    </symbol>
-    <symbol id="i-play-circle" viewBox="0 0 24 24">
-      <circle cx="12" cy="12" r="9.5"/><polygon points="10 8.6 15.5 12 10 15.4 10 8.6"/>
-    </symbol>
-    <symbol id="i-refresh" viewBox="0 0 24 24">
-      <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
-    </symbol>
-    <symbol id="i-eye" viewBox="0 0 24 24">
-      <path d="M1 12s4-7.5 11-7.5S23 12 23 12s-4 7.5-11 7.5S1 12 1 12z"/><circle cx="12" cy="12" r="3"/>
-    </symbol>
-    <symbol id="i-eyeoff" viewBox="0 0 24 24">
-      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>
-    </symbol>
-    <symbol id="i-trash" viewBox="0 0 24 24">
-      <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-    </symbol>
-    <symbol id="i-check" viewBox="0 0 24 24">
-      <polyline points="20 6 9 17 4 12"/>
-    </symbol>
-    <symbol id="i-x" viewBox="0 0 24 24">
-      <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-    </symbol>
-    <symbol id="i-search" viewBox="0 0 24 24">
-      <circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.5" y2="16.5"/>
-    </symbol>
-    <symbol id="i-key" viewBox="0 0 24 24">
-      <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/>
-    </symbol>
-    <symbol id="i-film" viewBox="0 0 24 24">
-      <rect x="2" y="2" width="20" height="20" rx="2.5"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="7" x2="7" y2="7"/><line x1="2" y1="17" x2="7" y2="17"/><line x1="17" y1="17" x2="22" y2="17"/><line x1="17" y1="7" x2="22" y2="7"/>
-    </symbol>
-    <symbol id="i-tv" viewBox="0 0 24 24">
-      <rect x="2" y="7" width="20" height="15" rx="2"/><polyline points="17 2 12 7 7 2"/>
-    </symbol>
-    <symbol id="i-clock" viewBox="0 0 24 24">
-      <circle cx="12" cy="12" r="9.5"/><polyline points="12 6.5 12 12 16 14.5"/>
-    </symbol>
-    <symbol id="i-warning" viewBox="0 0 24 24">
-      <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12" y2="17.01"/>
-    </symbol>
-    <symbol id="i-external" viewBox="0 0 24 24">
-      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
-    </symbol>
-    <symbol id="i-radar" viewBox="0 0 24 24">
-      <circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><line x1="12" y1="12" x2="18.4" y2="5.6"/><line x1="16.5" y1="16.5" x2="16.6" y2="16.6"/>
-    </symbol>
-    <symbol id="i-filter" viewBox="0 0 24 24">
-      <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
-    </symbol>
-    <symbol id="i-star" viewBox="0 0 24 24">
-      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
-    </symbol>
-  </svg>
-
   <div class="layout">
-
     <aside class="sidebar">
-      <a class="brand" href="#/overview" title="Advarr — на главную">
-        <img class="brand-logo" src="/logo.svg" alt="" width="34" height="34">
-        <span class="brand-name">advarr</span>
-        <span class="brand-tag">radar</span>
+      <a class="logo" href="#/overview">
+        <img src="/logo.svg" alt="Advarr" width="34" height="34">
+        <span>Advarr</span>
       </a>
-
-      <nav class="nav" aria-label="Основная навигация">
-        <a class="nav-item" data-route="overview" href="#/overview">
-          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-overview"></use></svg>
-          <span class="label">Обзор</span>
-        </a>
-        <a class="nav-item" data-route="discovery" href="#/discovery">
-          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-discover"></use></svg>
-          <span class="label">Подборка</span>
-        </a>
-        <a class="nav-item" data-route="history" href="#/history">
-          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-history"></use></svg>
-          <span class="label">История</span>
-        </a>
-        <a class="nav-item" data-route="settings" href="#/settings">
-          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-settings"></use></svg>
-          <span class="label">Настройки</span>
-        </a>
-        <a class="nav-item" data-route="logs" href="#/logs">
-          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-logs"></use></svg>
-          <span class="label">Логи</span>
-        </a>
-        <a class="nav-item" data-route="about" href="#/about">
-          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-about"></use></svg>
-          <span class="label">О приложении</span>
-        </a>
+      <nav class="nav" id="nav">
+        <a href="#/overview" data-route="overview"><svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M12 2a10 10 0 0 1 10 10h-2a8 8 0 1 0-8 8v2A10 10 0 0 1 12 2zm0 5a5 5 0 0 1 5 5h-2a3 3 0 1 0-3 3v2a5 5 0 0 1-5-5 5 5 0 0 1 5-5zm1 5.4V4h-2v8.4l-4.7-2.7-1 1.7L12 15l6.7-3.9-1-1.7L13 12.4z"/></svg><span>Обзор</span></a>
+        <a href="#/discovery" data-route="discovery"><svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm6 4v8l6-4-6-4z"/></svg><span>Подборка</span></a>
+        <a href="#/history" data-route="history"><svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M13 3a9 9 0 1 0 8.95 10h-2.02A7 7 0 1 1 13 5a6.96 6.96 0 0 1 4.95 2.05L15 10h7V3l-2.64 2.64A8.96 8.96 0 0 0 13 3zm-1 5v5l4.25 2.52.77-1.28-3.52-2.09V8H12z"/></svg><span>История</span></a>
+        <a href="#/settings" data-route="settings"><svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M12 15.5A3.5 3.5 0 1 1 12 8.5a3.5 3.5 0 0 1 0 7zm7.4-2.5c.04-.33.06-.66.06-1s-.02-.67-.06-1l2.1-1.65a.5.5 0 0 0 .12-.64l-2-3.46a.5.5 0 0 0-.61-.22l-2.49 1a7.9 7.9 0 0 0-1.73-1L14.4 2.4a.5.5 0 0 0-.5-.4h-4a.5.5 0 0 0-.5.4l-.37 2.63c-.63.26-1.2.6-1.73 1l-2.49-1a.5.5 0 0 0-.6.22l-2 3.46a.5.5 0 0 0 .12.64L4.6 11c-.04.33-.06.66-.06 1s.02.67.06 1l-2.1 1.65a.5.5 0 0 0-.12.64l2 3.46c.14.24.42.34.61.22l2.49-1c.53.4 1.1.74 1.73 1l.37 2.63c.04.23.25.4.5.4h4c.25 0 .46-.17.5-.4l.37-2.63a7.9 7.9 0 0 0 1.73-1l2.49 1c.23.1.47 0 .61-.22l2-3.46a.5.5 0 0 0-.12-.64L19.4 13z"/></svg><span>Настройки</span></a>
+        <a href="#/logs" data-route="logs"><svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M4 5h16v2H4V5zm0 6h16v2H4v-2zm0 6h10v2H4v-2z"/></svg><span>Логи</span></a>
+        <a href="#/about" data-route="about"><svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg><span>О приложении</span></a>
       </nav>
-
-      <div class="sidebar-foot">
-        <div class="foot-ver" id="side-version">Advarr</div>
-        <div class="foot-hint">passive discovery radar</div>
+      <div class="sidebar-footer">
+        <span class="ver" id="side-version">v0.1.0</span>
       </div>
     </aside>
 
-    <div class="main-col">
+    <div class="main">
       <header class="topbar">
-        <div class="chips">
-          <span class="chip" id="chip-seerr"><span class="chip-dot"></span><span class="chip-label">Seerr</span></span>
-          <span class="chip" id="chip-tmdb"><span class="chip-dot"></span><span class="chip-label">TMDB</span></span>
-          <span class="chip" id="chip-next" data-tip="Следующий запуск по расписанию">
-            <svg class="icon icon-xs" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-clock"></use></svg>
-            <span class="chip-label" id="chip-next-label">—</span>
-          </span>
+        <div class="chips" id="status-chips">
+          <span class="chip chip-idle" id="chip-tmdb">TMDB: …</span>
+          <span class="chip chip-idle" id="chip-seerr">Seerr: …</span>
+          <span class="chip chip-time" id="chip-next">—</span>
+          <span class="chip chip-running hidden" id="chip-running">⟳ идёт прогон…</span>
         </div>
-        <button class="btn btn-primary btn-run" id="btn-run" type="button">
-          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-play"></use></svg>
-          <span id="btn-run-label">Запустить сейчас</span>
-        </button>
+        <div class="topbar-actions">
+          <button class="btn btn-ghost" id="btn-dry">Пробный прогон</button>
+          <button class="btn btn-accent" id="btn-run">▶ Запустить сейчас</button>
+        </div>
       </header>
-
-      <main id="view" class="view" tabindex="-1"></main>
+      <main class="content" id="view"></main>
     </div>
   </div>
 
-  <div id="toasts" class="toasts" aria-live="polite"></div>
-  <div id="modal-root"></div>
-
-  <noscript>
-    <div class="noscript">Для работы Advarr нужен включённый JavaScript.</div>
-  </noscript>
+  <div class="modal-overlay hidden" id="modal-overlay">
+    <div class="modal" id="modal"></div>
+  </div>
+  <div class="toasts" id="toasts"></div>
+  <div class="keyprompt-overlay hidden" id="keyprompt-overlay">
+    <div class="modal modal-small">
+      <h3>Требуется API-ключ</h3>
+      <p class="muted">Сервер запущен с ADVARR_API_KEY. Введи его один раз — сохранится в localStorage.</p>
+      <input type="password" id="keyprompt-input" class="input" placeholder="API-ключ">
+      <div class="row-end"><button class="btn btn-accent" id="keyprompt-save">Войти</button></div>
+    </div>
+  </div>
 
   <script type="module" src="/js/app.js"></script>
 </body>
