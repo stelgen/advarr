@@ -82,6 +82,9 @@ applyPatch(configStore.data, {
   selection: { moviesPerRun: 2, showsPerRun: 1 },
   filters: { minVotes: 50, minRating: 6.0, yearFrom: 1950, checkAvailability: true, excludeInSeerr: true },
   sources: {
+    // pages:1 — mock always returns non-empty results on any page;
+    // real TMDB ends with an empty page (fetchSource stops on it, unit-tested in tmdb.test.js)
+    pages: 1,
     trending_week: { on: false }, popular: { on: true }, top_rated: { on: false },
     now_playing: { on: false }, upcoming: { on: false }, discover: { on: false },
   },
