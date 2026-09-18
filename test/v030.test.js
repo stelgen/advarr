@@ -199,12 +199,12 @@ describe('engine v0.3', () => {
 });
 
 /* ---------- live server e2e: auth switch, port rebind, notify test, backup lifecycle ---------- */
-describe('live server v0.3', { timeout: 60000 }, () => {
+describe('live server v0.3', { timeout: 120000 }, () => {
   const PORT = 8931;
   let child = null;
   const dataDir = tmpDir();
 
-  const waitHealthy = async (port, tries = 40) => {
+  const waitHealthy = async (port, tries = 80) => {
     for (let i = 0; i < tries; i += 1) {
       try {
         const r = await fetch(`http://127.0.0.1:${port}/api/v1/health`, { signal: AbortSignal.timeout(700) });

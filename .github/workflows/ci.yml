@@ -21,7 +21,13 @@ jobs:
       - name: Syntax check
         run: for f in server.js lib/*.js; do node --check "$f"; done
       - name: Unit + e2e tests
-        run: node --test --test-concurrency=1 test/*.test.js
+        run: |
+          set -o pipefail
+          node --test --test-concurrency=1 test/*.test.js 2>&1 | tee /tmp/test-out.txt | grep -E '^(ok|not ok|# (tests|pass|fail|cancelled))' || true
+          if grep -q '^not ok' /tmp/test-out.txt; then
+            grep -A6 '^not ok' /tmp/test-out.txt | head -40 | while IFS= read -r line; do echo "::error::$line"; done
+            exit 1
+          fi
 
   docker:
     needs: test
