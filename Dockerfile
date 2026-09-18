@@ -24,8 +24,9 @@ ENV NODE_ENV=production \
     TZ=UTC
 
 # tini: signal handling; ca-certificates: TMDB/seerr TLS;
-# libcrypto3/libssl3: bump openssl to latest repo version (CVE-2026-14456/45447)
-RUN apk add --no-cache tini ca-certificates libcrypto3 libssl3 \
+# libcrypto3/libssl3: -u forces upgrade past installed 3.5.6-r0 → fixed 3.5.7/3.5.8-r0
+# (plain `apk add` keeps the pinned base version — CVE-2026-14456/45447 stay unpatched)
+RUN apk add --no-cache --upgrade tini ca-certificates libcrypto3 libssl3 \
     && addgroup -g 10001 -S advarr \
     && adduser -u 10001 -S -D -H -G advarr -s /sbin/nologin advarr \
     # app is zero-deps: npm/yarn/corepack never run in production —
