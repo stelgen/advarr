@@ -53,21 +53,31 @@ jobs:
           curl -fsS http://127.0.0.1:8787/api/v1/health
           docker rm -f advarr-smoke
 
-      - name: Trivy security scan
+      - name: Trivy security scan (report)
         # pinned by commit SHA (v0.36.0); tags like @0.28.0 no longer resolve
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
         with:
           image-ref: advarr:ci
-          format: table
-          output: /tmp/trivy-report.txt
-          exit-code: '1'
+          format: json
+          output: /tmp/trivy.json
           ignore-unfixed: true
           severity: HIGH,CRITICAL
+          scanners: vuln
+          exit-code: '0'
 
-      - name: Publish Trivy report to job summary
-        if: always()
+      - name: Enforce trivy results (annotate + fail)
         run: |
-          { echo "## Trivy (HIGH/CRITICAL, unfixed) — image advarr:ci"; tail -60 /tmp/trivy-report.txt 2>/dev/null || echo '(report file missing)'; } >> "$GITHUB_STEP_SUMMARY"
+          echo "## Trivy (HIGH/CRITICAL, unfixed) — advarr:ci" >> "$GITHUB_STEP_SUMMARY"
+          jq -r '.Results[]? | .Target as $t | .Vulnerabilities[]? | "\(.Severity)\t\(.VulnerabilityID)\t\(.PkgName)\t\(.InstalledVersion)\t\(.FixedVersion // "unfixed")"' \
+            /tmp/trivy.json | tee /tmp/findings.txt | sed 's/^/  /' >> "$GITHUB_STEP_SUMMARY" || true
+          N=$(wc -l < /tmp/findings.txt)
+          if [ "$N" -gt 0 ]; then
+            while IFS=$'\t' read -r sev cve pkg inst fixed; do
+              echo "::error::Trivy $sev: $cve — $pkg ($inst → $fixed)"
+            done < /tmp/findings.txt
+            exit 1
+          fi
+          echo "✅ no HIGH/CRITICAL unfixed findings" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Login to GHCR
         if: github.event_name != 'pull_request'
