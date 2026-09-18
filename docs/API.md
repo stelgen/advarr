@@ -1,5 +1,13 @@
 # Advarr API v1 (internal contract)
 
+## v0.4.0 additions
+- `GET /api/v1/enrich?type=movie&tmdbId=123&title=…&year=2024` →
+  `{ok, provider, title, year, overview, cast[], directors[], externalIds{imdbId,tvdbId,tmdbId}, attempts[], cached?}` —
+  обогащение метаданными; провайдеры в порядке приоритета из настроек (`enrich.providers`),
+  последующие дозаполняют только недостающие поля; без ключа TMDB работает через IMDb-suggestion
+- `POST /api/v1/enrich/test` ← `{provider, title, mediaType?, year?}` → `{ok, castCount, imdbId?}`
+- config v3: секция `enrich{enabled, providers[], tvdb{apiKey, pin}}` (ключи маскируются)
+
 ## v0.3.0 additions
 - `GET /api/v1/backup` → `{items:[{id,name,size,modifiedAt}]}`
 - `POST /api/v1/backup` → 201 `{id,name,size,modifiedAt}` (снапшот config+history+runs, ротация maxKeep)

@@ -121,11 +121,30 @@ async function showDetails(c) {
           <b>TMDB</b><span><a href="https://www.themoviedb.org/${c.mediaType}/${c.id}" target="_blank" rel="noopener noreferrer">открыть ↗</a></span>
         </div>
         <p class="muted" style="font-size:13px">${esc(c.overview || 'Описание отсутствует.')}</p>
+        <div id="enrich-box" class="muted" style="font-size:13px">Метаданные: загрузка…</div>
         <button class="btn btn-accent" data-req data-type="${c.mediaType}" data-id="${c.id}" data-title="${esc(c.title)}">Запросить в Seerr</button>
       </div>
     </div>
   `);
   document.querySelector('#modal .modal-x')?.addEventListener('click', closeModal);
+
+  // metadata enrichment (actors, directors, external IDs)
+  api(`/api/v1/enrich?type=${c.mediaType}&tmdbId=${c.id}&title=${encodeURIComponent(c.title)}&year=${c.year || 0}`)
+    .then((e) => {
+      const box = document.querySelector('#enrich-box');
+      if (!box) return;
+      if (!e.ok) { box.textContent = `Метаданные: недоступно (${e.reason || 'провайдеры не ответили'})`; return; }
+      const parts = [];
+      if (e.cast?.length) parts.push(`<b>Актёры:</b> ${e.cast.map((n) => `<span class="chip-mini">${esc(n)}</span>`).join(' ')}`);
+      if (e.directors?.length) parts.push(`<b>Режиссёры:</b> ${e.directors.map(esc).join(', ')}`);
+      if (e.externalIds?.imdbId) parts.push(`<b>IMDb:</b> <a href="https://www.imdb.com/title/${esc(e.externalIds.imdbId)}/" target="_blank" rel="noopener noreferrer">${esc(e.externalIds.imdbId)} ↗</a>`);
+      parts.push(`<span class="muted">источник: ${esc(e.provider)}${e.cached ? ' (кэш)' : ''}</span>`);
+      box.innerHTML = parts.join('<br>');
+    })
+    .catch(() => {
+      const box = document.querySelector('#enrich-box');
+      if (box) box.textContent = 'Метаданные: недоступно';
+    });
   document.querySelectorAll('#modal [data-req]').forEach((btn) => btn.addEventListener('click', async () => {
     btn.disabled = true;
     try {

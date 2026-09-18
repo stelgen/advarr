@@ -17,8 +17,9 @@ import { createScheduler } from './lib/scheduler.js';
 import { createNotify } from './lib/notify.js';
 import { createBackupManager } from './lib/backup.js';
 import { makeOutboundFetch } from './lib/proxy.js';
+import { createEnrich } from './lib/enrich.js';
 
-const APP_VERSION = '0.3.1';
+const APP_VERSION = '0.4.0';
 const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
 const DATA_DIR = process.env.ADVARR_DATA_DIR || path.join(__dirname, 'data');
 
@@ -67,6 +68,7 @@ function buildSeerr() {
 const clients = { tmdb: buildTmdb(), seerr: buildSeerr() };
 
 const notify = createNotify({ configStore, fetchImpl: dynamicOutbound, logger });
+const enrich = createEnrich({ configStore, fetchImpl: dynamicOutbound, logger });
 const backup = createBackupManager({
   dataDir: DATA_DIR, configStore, historyStore, runsStore, logger, version: APP_VERSION,
 });
@@ -117,6 +119,8 @@ function publicConfig(cfg) {
   for (const p of (c.notify?.providers || [])) {
     if (p.telegram?.botToken) p.telegram.botToken = maskSecret(p.telegram.botToken);
   }
+  c.enrich.tvdb.apiKey = maskSecret(c.enrich.tvdb.apiKey);
+  c.enrich.tvdb.pin = maskSecret(c.enrich.tvdb.pin);
   return c;
 }
 
@@ -130,6 +134,8 @@ const SECRET_PATHS = [
   ['general', 'authentication', 'password'],
   ['general', 'authentication', 'apiKey'],
   ['general', 'proxy', 'password'],
+  ['enrich', 'tvdb', 'apiKey'],
+  ['enrich', 'tvdb', 'pin'],
 ];
 
 function applyLiveEffects() {
@@ -277,6 +283,34 @@ app.post('/api/v1/settings/test-seerr', async (ctx) => {
     json(ctx, 200, { ok: true, message: `${res.app} v${res.version} — подключено` });
   } catch (err) {
     json(ctx, 200, { ok: false, message: `Seerr: ${err.message}` });
+  }
+});
+
+// ---------- metadata enrichment ----------
+app.get('/api/v1/enrich', async (ctx) => {
+  const type = ctx.query.get('type') === 'tv' ? 'tv' : 'movie';
+  const tmdbId = Number(ctx.query.get('tmdbId'));
+  if (!Number.isInteger(tmdbId) || tmdbId <= 0) return json(ctx, 400, { error: 'tmdbId required' });
+  try {
+    const value = await enrich.enrich({
+      mediaType: type,
+      tmdbId,
+      title: ctx.query.get('title') || '',
+      year: Number(ctx.query.get('year')) || 0,
+    });
+    json(ctx, 200, value);
+  } catch (err) {
+    json(ctx, 502, { ok: false, error: err.message });
+  }
+});
+
+app.post('/api/v1/enrich/test', async (ctx) => {
+  const { provider, title, mediaType, year } = ctx.body || {};
+  if (!provider || !title) return json(ctx, 400, { error: 'provider and title required' });
+  try {
+    json(ctx, 200, { ok: true, ...(await enrich.testProvider(provider, { title, mediaType: mediaType || 'movie', year })) });
+  } catch (err) {
+    json(ctx, 200, { ok: false, message: err.message });
   }
 });
 
