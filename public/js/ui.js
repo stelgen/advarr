@@ -58,8 +58,13 @@ export const SOURCE_LABELS = {
   manual: 'Вручную',
 };
 
+const POSTER_FALLBACK = 'data:image/svg+xml;utf8,' + encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="300">' +
+  '<rect width="200" height="300" fill="#232329"/>' +
+  '<rect x="84" y="128" width="32" height="44" rx="6" fill="none" stroke="#5b5b6b" stroke-width="4"/>' +
+  '<path d="M94 140 L94 160 L112 150 Z" fill="#5b5b6b"/></svg>');
+
 export function posterUrl(path, size = 'w342') {
-  if (!path) return 'data:image/svg+xml;utf8,' + encodeURIComponent(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="200" height="300"><rect width="200" height="300" fill="#232329"/><text x="100" y="158" font-size="42" text-anchor="middle">🎬</text></svg>`);
+  if (!path) return POSTER_FALLBACK;
   return `/img/poster?path=${encodeURIComponent(path)}&size=${size}`;
 }

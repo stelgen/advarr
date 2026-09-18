@@ -73,7 +73,7 @@ function row(h) {
   return `<tr>
     <td><img class="thumb" loading="lazy" src="${posterUrl(h.posterPath, 'w92')}" alt=""></td>
     <td><b>${esc(h.title)}</b> <span class="muted">${h.year || ''}</span></td>
-    <td>${h.mediaType === 'tv' ? '📺' : '🎬'}</td>
+    <td><span class="badge ${h.mediaType === 'tv' ? 'badge-tv' : 'badge-movie'}">${h.mediaType === 'tv' ? 'Сериал' : 'Фильм'}</span></td>
     <td>${h.score ?? '—'}</td>
     <td>${(h.sources || []).map((s) => `<span class="chip-mini">${SOURCE_LABELS[s] || s}</span>`).join(' ')}</td>
     <td class="${h.status === 'requested' ? 'status-ok' : 'status-err'}" title="${esc(h.error || '')}">${h.status === 'requested' ? 'Запрошено' : 'Ошибка'}</td>

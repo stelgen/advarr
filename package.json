@@ -1,6 +1,6 @@
 {
   "name": "advarr",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Advarr — passive TMDB discovery radar: periodically finds trending movies & shows and auto-requests them into Jellyseerr/Overseerr.",
   "type": "module",
   "main": "server.js",

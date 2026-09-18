@@ -74,6 +74,18 @@ docker run -d --name advarr \
   ghcr.io/stelgen/advarr:latest
 ```
 
+## Скриншоты
+
+| Обзор | Подборка (dry-run) | Настройки |
+|---|---|---|
+| ![Обзор](docs/screenshots/overview.png) | ![Подборка](docs/screenshots/discovery.png) | ![Настройки](docs/screenshots/settings-sources.png) |
+
+## За reverse-proxy (nginx/traefik)
+
+Нормально себя чувствует: без вебсокетов и sticky-сессий. Подними `proxy_read_timeout` до 300s
+dля длинных dry-рuv-прогонов и выставь `TRUST_PROXY=1`, чтобы rate-limit видел реальные IP —
+подробности в [docs/REVERSE-PROXY.md](docs/REVERSE-PROXY.md).
+
 ## Настройка
 
 Всё — в веб-морде (разделы как в *arr): **Jellyseerr/Overseerr · TMDB · Расписание · Выборка · Фильтры · Источники · Скоринг**.
@@ -87,6 +99,7 @@ docker run -d --name advarr \
 | `SEERR_API_KEY` | — | API-ключ Seerr |
 | `BASIC_AUTH_USER` / `BASIC_AUTH_PASS` | — | Basic-Auth на веб-морду |
 | `ADVARR_API_KEY` | — | Альтернатива Basic: `X-Api-Key` |
+| `TRUST_PROXY` | — | `1` = доверять `X-Forwarded-For` (только за своим прокси) |
 
 Логика выборки: пул кандидатов со включённых источников → фильтры → дедуп
 (история + `GET /api/v1/request` в Seerr) → скоринг → квота `moviesPerRun`/`showsPerRun` →

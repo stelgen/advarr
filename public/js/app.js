@@ -29,6 +29,8 @@ export async function refreshStatus(silent = true) {
 function paintStatus() {
   const s = statusCache;
   if (!s) return;
+  const ver = document.getElementById('side-version');
+  if (ver && s.version) ver.textContent = `v${s.version}`;
   const tmdb = document.getElementById('chip-tmdb');
   const seerr = document.getElementById('chip-seerr');
   const next = document.getElementById('chip-next');
@@ -88,5 +90,4 @@ document.getElementById('btn-dry')?.addEventListener('click', async () => {
 // boot
 await refreshStatus();
 await renderRoute();
-setInterval(() => { refreshStatus(true); }, 30000);
-setInterval(() => { if (statusCache) paintStatus(); }, 30000);
+setInterval(() => { refreshStatus(true); }, 30000); // paintStatus runs inside refreshStatus

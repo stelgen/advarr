@@ -30,16 +30,15 @@ def radar(img, cx, cy, r, sweep_deg=320, rings=4):
         alpha = 90 if i % 2 == 0 else 55
         d.ellipse([cx - rr, cy - rr, cx + rr, cy + rr],
                   outline=VIOLET + (alpha,), width=max(2, int(r * 0.03)))
-    # sweep sector (anti-alias via supersampling layer)
+    # sweep sector: one uniform wedge + brighter tail near the needle,
+    # then gaussian blur → smooth glow, no radial banding
     s = 4
     big = Image.new("RGBA", (img.width * s, img.height * s), (0, 0, 0, 0))
     db = ImageDraw.Draw(big)
-    for i in range(28):
-        a0 = -90 - sweep_deg + i * (sweep_deg / 28.0)
-        alpha = int(150 * (i / 28.0))
-        db.pieslice([cx * s - r * s, cy * s - r * s, cx * s + r * s, cy * s + r * s],
-                    a0 - sweep_deg / 28.0, a0, fill=VIOLET + (alpha,))
-    big = big.resize(img.size, Image.LANCZOS)
+    box = [cx * s - r * s, cy * s - r * s, cx * s + r * s, cy * s + r * s]
+    db.pieslice(box, -90 - sweep_deg, -90, fill=VIOLET + (58,))
+    db.pieslice(box, -90 - 36, -90, fill=VIOLET + (110,))
+    big = big.filter(ImageFilter.GaussianBlur(s * 3.2)).resize(img.size, Image.LANCZOS)
     img.alpha_composite(big)
     # blips
     for ang, br in [(20, 0.55), (-40, 0.8), (-70, 0.38)]:
@@ -69,11 +68,6 @@ def make_social():
     W, H = 1280, 640
     img = Image.new("RGBA", (W, H), BG)
     d = ImageDraw.Draw(img, "RGBA")
-    # subtle grid
-    for x in range(0, W, 64):
-        d.line([(x, 0), (x, H)], fill=(255, 255, 255, 6))
-    for y in range(0, H, 64):
-        d.line([(0, y), (W, y)], fill=(255, 255, 255, 6))
     # icon
     icon = Image.open(OUT_ICON).resize((360, 360), Image.LANCZOS)
     img.alpha_composite(icon, (80, 140))
@@ -82,11 +76,17 @@ def make_social():
     f_small = ImageFont.truetype(FONT, 40)
     f_tiny = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 30)
     d.text((520, 190), "ADVARR", font=f_big, fill=(240, 240, 248))
-    d.rounded_rectangle([524, 360, 890, 410], radius=25, fill=VIOLET + (40,), outline=VIOLET + (120,), width=2)
-    d.text((548, 215 + 210), "radar for your *arr stack", font=f_small, fill=(168, 160, 200))
-    d.text((524, 470),
-           "TMDB тренды → фильтры → автозапросы в Jellyseerr / Overseerr",
-           font=f_tiny, fill=(150, 145, 170))
+    tagline = "radar for your *arr stack"
+    tw = d.textlength(tagline, font=f_small)
+    d.rounded_rectangle([524, 358, 524 + tw + 56, 412], radius=27,
+                        fill=VIOLET + (46,), outline=VIOLET + (130,), width=2)
+    d.text((524 + 28, 366), tagline, font=f_small, fill=(190, 178, 230))
+    sub = "TMDB тренды → фильтры → автозапросы в Seerr"
+    f_tiny_size = 30
+    while d.textlength(sub, font=ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", f_tiny_size)) > W - 524 - 60:
+        f_tiny_size -= 2
+    f_tiny_fit = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", f_tiny_size)
+    d.text((524, 470), sub, font=f_tiny_fit, fill=(150, 145, 170))
     d.text((524, 515), "docker • zero-deps • MIT", font=f_tiny, fill=(110, 105, 135))
     img.convert("RGB").save(OUT_SOCIAL)
     img.convert("RGB").save(OUT_OG)

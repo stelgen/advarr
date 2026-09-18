@@ -8,13 +8,14 @@
 #   - no-new-privileges & cap_drop ALL in docker-compose.yml
 ##############################################################################
 
-FROM node:22.14.0-alpine3.21
+# base pinned to tag + index digest (reproducible, multi-arch)
+FROM node:22.22-alpine3.22@sha256:cd7807368cf24826297cbad5dca1a44972ccfd770647db52a8c7589eb4599ac8
 
 LABEL org.opencontainers.image.title="Advarr" \
       org.opencontainers.image.description="Passive TMDB discovery radar for Jellyseerr/Overseerr" \
       org.opencontainers.image.source="https://github.com/stelgen/advarr" \
       org.opencontainers.image.licenses="MIT" \
-      org.opencontainers.image.version="0.1.0"
+      org.opencontainers.image.version="0.2.0"
 
 ENV NODE_ENV=production \
     NODE_OPTIONS="--disable-proto=throw --insecure-http-parser=false" \

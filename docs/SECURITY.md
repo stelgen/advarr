@@ -6,7 +6,7 @@ Advarr — локальный сервис для домашней сети. Har
 
 - **Образ**: non-root (uid 10001), tini как PID 1, read-only rootfs (запись только в `/app/data` и tmpfs `/tmp`), `cap_drop: ALL` + `no-new-privileges` в compose, Trivy-скан в CI (fail на HIGH/CRITICAL).
 - **Supply chain**: **ноль** npm-зависимостей в рантайме. Node stdlib only. Базовый образ пинится по версии.
-- **HTTP**: строгий CSP (`default-src 'self'`, без внешних CDN), `X-Content-Type-Options`, `frame-ancestors 'none'`, `noindex`, rate-limit на `/api` и `/img`, ограничение тела запроса, защита от path traversal.
+- **HTTP**: CSP `script-src 'self'` (без unsafe-inline для скриптов; для style-атрибутов серверных шаблонов — `style-src-attr 'unsafe-inline'`), `X-Content-Type-Options`, `frame-ancestors 'none'`, `noindex`, rate-limit на `/api` и `/img`, ограничение тела запроса, защита от path traversal, `X-Forwarded-For` учитывается только при `TRUST_PROXY=1`.
 - **Аутентификация**: опционально Basic-Auth или API-ключ (`X-Api-Key`), сравнение `timingSafeEqual`. Секреты только через env — никогда не в `data/`.
 - **Секреты**: ключи TMDB/Seerr никогда не попадают в логи (маскирование) и отдаются UI только в маскированном виде (`••••1234`).
 

@@ -1,6 +1,6 @@
 // Advarr — Подборка: dry-run превью кандидатов, карточки с постерами.
 import { api } from '../api.js';
-import { esc, openModal, scoreClass, posterUrl, SOURCE_LABELS, toast } from '../ui.js';
+import { esc, openModal, closeModal, scoreClass, posterUrl, SOURCE_LABELS, toast } from '../ui.js';
 
 const genreCache = {};
 
@@ -63,7 +63,7 @@ async function load() {
 }
 
 function card(c) {
-  const type = c.mediaType === 'tv' ? '📺 Сериал' : '🎬 Фильм';
+  const type = c.mediaType === 'tv' ? 'Сериал' : 'Фильм';
   return `
   <div class="pcard">
     <img class="poster" loading="lazy" src="${posterUrl(c.posterPath)}" alt="${esc(c.title)}">
@@ -91,10 +91,10 @@ async function showDetails(c) {
   openModal(`
     <div class="modal-head">
       <h3 style="margin:0">${esc(c.title)} <span class="muted" style="font-weight:400">(${c.year || '—'})</span></h3>
-      <button class="modal-x" onclick="document.getElementById('modal-overlay').classList.add('hidden')">✕</button>
+      <button class="modal-x" type="button">✕</button>
     </div>
     <div class="detail">
-      <img src="${posterUrl(c.posterPath, 'w500')}" alt="">
+      <img src="${posterUrl(c.posterPath, 'w500')}" alt="${esc(c.title)}">
       <div>
         <div class="kv">
           <b>Рейтинг</b><span>⭐ ${c.voteAverage} (${c.voteCount} голосов)</span>
@@ -110,6 +110,7 @@ async function showDetails(c) {
       </div>
     </div>
   `);
+  document.querySelector('#modal .modal-x')?.addEventListener('click', closeModal);
   document.querySelectorAll('#modal [data-req]').forEach((btn) => btn.addEventListener('click', async () => {
     btn.disabled = true;
     try {

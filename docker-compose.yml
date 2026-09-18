@@ -17,6 +17,7 @@ services:
       BASIC_AUTH_USER: ${BASIC_AUTH_USER:-}
       BASIC_AUTH_PASS: ${BASIC_AUTH_PASS:-}
       # ADVARR_API_KEY: ${ADVARR_API_KEY:-}
+      # за reverse-proxy: TRUST_PROXY: "1" (см. docs/REVERSE-PROXY.md)
     volumes:
       - ./data:/app/data
     # --- hardening ---

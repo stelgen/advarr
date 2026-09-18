@@ -13,7 +13,7 @@ import { createSeerr, normalizeBaseUrl } from './lib/seerr.js';
 import { createEngine } from './lib/engine.js';
 import { createScheduler } from './lib/scheduler.js';
 
-const APP_VERSION = '0.1.0';
+const APP_VERSION = '0.2.0';
 const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
 const PORT = Number(process.env.ADVARR_PORT || 8787);
 const HOST = process.env.ADVARR_HOST || '0.0.0.0';
@@ -69,6 +69,8 @@ const app = createApp({
   logger,
   staticDir: path.join(__dirname, 'public'),
   auth: buildAuth(),
+  // trust X-Forwarded-For ONLY when explicitly running behind a reverse proxy
+  trustProxy: process.env.TRUST_PROXY === '1',
 });
 
 // ---------- helpers ----------
@@ -248,7 +250,7 @@ app.get('/img/poster', async (ctx) => {
     if (!upstream.ok) return json(ctx, 502, { error: `upstream ${upstream.status}` });
     const buf = Buffer.from(await upstream.arrayBuffer());
     ctx.res.writeHead(200, {
-      'Content-Type': upstreamRes_type(upstream),
+      'Content-Type': upstream.headers.get('content-type') || 'image/jpeg',
       'Cache-Control': 'public, max-age=604800, immutable',
     });
     ctx.res.end(buf);
@@ -256,7 +258,6 @@ app.get('/img/poster', async (ctx) => {
     json(ctx, 504, { error: `poster fetch failed: ${err.message}` });
   }
 });
-const upstreamRes_type = (res) => res.headers.get('content-type') || 'image/jpeg';
 
 // ---------- boot ----------
 const server = app.listen(PORT, HOST, () => {

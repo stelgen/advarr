@@ -12,7 +12,7 @@ export async function render(view, status) {
     <div class="stats">
       <div class="stat"><div class="label">Всего в истории</div><div class="value">${s.historyCount}</div><div class="sub">фильмов и сериалов</div></div>
       <div class="stat"><div class="label">Последний прогон</div><div class="value">${okRuns}</div><div class="sub">${last ? esc(fmtDate(last.startedAt)) : 'ещё не было'}</div></div>
-      <div class="stat"><div class="label">Следующий запуск</div><div class="value">${s.running ? '⟳ идёт' : 'по расписанию'}</div><div class="sub">${s.scheduleInfo || ''}</div></div>
+      <div class="stat"><div class="label">Следующий запуск</div><div class="value">${s.running ? '⟳ идёт' : 'по расписанию'}</div><div class="sub">интервал и джиттер — в «Настройках»</div></div>
       <div class="stat"><div class="label">Интеграции</div><div class="value">${(s.tmdb.connected === true ? 'TMDB ✓' : 'TMDB ✗')} ${(s.seerr.connected ? '· Seerr ✓' : '· Seerr ✗')}</div><div class="sub">статус подключений</div></div>
     </div>
 
