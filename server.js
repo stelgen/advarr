@@ -8,7 +8,7 @@ import url from 'node:url';
 
 import { createLogger } from './lib/logs.js';
 import { JsonStore } from './lib/store.js';
-import { loadConfig, applyPatch, unmaskPatch, restoreProviderSecrets } from './lib/config.js';
+import { loadConfig, applyPatch, unmaskPatch, restoreProviderSecrets, restoreIntegrationsSecrets } from './lib/config.js';
 import { createApp } from './lib/http.js';
 import { createTmdb } from './lib/tmdb.js';
 import { createSeerr, normalizeBaseUrl } from './lib/seerr.js';
@@ -18,8 +18,9 @@ import { createNotify } from './lib/notify.js';
 import { createBackupManager } from './lib/backup.js';
 import { makeOutboundFetch } from './lib/proxy.js';
 import { createExporter } from './lib/export.js';
+import { createArrClient } from './lib/radarr.js';
 
-const APP_VERSION = '0.5.0';
+const APP_VERSION = '0.6.0';
 const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
 const DATA_DIR = process.env.ADVARR_DATA_DIR || path.join(__dirname, 'data');
 
@@ -120,6 +121,9 @@ function publicConfig(cfg) {
   c.general.proxy.password = maskSecret(c.general.proxy.password);
   for (const p of (c.notify?.providers || [])) {
     if (p.telegram?.botToken) p.telegram.botToken = maskSecret(p.telegram.botToken);
+  }
+  for (const cl of (c.integrations?.clients || [])) {
+    if (cl.apiKey) cl.apiKey = maskSecret(cl.apiKey);
   }
   return c;
 }
@@ -238,6 +242,7 @@ app.put('/api/v1/settings', async (ctx) => {
 
   applyPatch(configStore.data, unmaskPatch(configStore.data, patch, SECRET_PATHS));
   restoreProviderSecrets(oldCfg, configStore.data);
+  restoreIntegrationsSecrets(oldCfg, configStore.data);
   configStore.saveNow();
 
   applyLiveEffects();
@@ -317,6 +322,24 @@ app.post('/api/v1/system/config/import', async (ctx) => {
     json(ctx, 200, { ok: true, rebound, version: configStore.data.version });
   } catch (err) {
     json(ctx, 400, { error: `импорт не удался: ${err.message}` });
+  }
+});
+
+// ---------- integrations (Radarr / Sonarr direct) ----------
+app.post('/api/v1/integrations/test', async (ctx) => {
+  const { type, url, apiKey, tmdbApiKey } = ctx.body || {};
+  if (!type || !url || !apiKey) return json(ctx, 400, { error: 'нужны type, url и apiKey' });
+  try {
+    const client = createArrClient({ type, url, apiKey, tmdbApiKey: tmdbApiKey || configStore.data.tmdb.apiKey, fetchImpl: dynamicOutbound, logger });
+    const t = await client.test();
+    json(ctx, 200, {
+      ok: true,
+      message: `${t.version} — подключено`,
+      profiles: (t.profiles || []).map((p) => ({ id: p.id, name: p.name })),
+      roots: (t.roots || []).map((r) => r.path),
+    });
+  } catch (err) {
+    json(ctx, 200, { ok: false, message: err.message });
   }
 });
 

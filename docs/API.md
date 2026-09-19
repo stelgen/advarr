@@ -1,5 +1,16 @@
 # Advarr API v1 (internal contract)
 
+## v0.6.0 additions
+- `POST /api/v1/integrations/test` ← `{type:'radarr'|'sonarr', url, apiKey}` →
+  `{ok, message, profiles:[{id,name}], roots:[path]}` — проверка связи + справочники
+  для выбора профиля качества и корневой папки (Radarr/Sonarr v3 API, X-Api-Key)
+- config v6: `integrations.clients[] = {id, type, name, url, apiKey(masked in API),
+  qualityProfileId, rootFolderPath, enabled}`, `sources.tmdb_list = {on, weight, ids}`
+- Движок: запросы уходят во все настроенные цели (Seerr + Radarr + Sonarr);
+  история и dry-run содержат `via` — маршрут запроса по целям;
+  дедуп учитывает содержимое библиотек Radarr/Sonarr (tmdbId)
+
+## v0.5.0 additions
 ## v0.5.0 additions
 - `GET /api/v1/system/config/download` → файл `advarr.config.vN.json` со всеми настройками
   (значения ключей НЕ маскируются — parity с config.xml Radarr; эндпоинт за auth)

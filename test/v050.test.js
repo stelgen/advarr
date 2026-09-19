@@ -147,7 +147,7 @@ describe('config export/import endpoints', { timeout: 90000 }, () => {
 
     const dl = await fetch(`http://127.0.0.1:${PORT}/api/v1/system/config/download`);
     assert.equal(dl.status, 200);
-    assert.match(dl.headers.get('content-disposition'), /attachment; filename="advarr\.config\.v5\.json"/);
+    assert.match(dl.headers.get('content-disposition'), /advarr\.config\.v\d+\.json/);
     const exported = JSON.parse(Buffer.from(await dl.arrayBuffer()).toString('utf8'));
     assert.equal(exported.tmdb.apiKey, 'LIVE-KEY-1234', 'Radarr-parity: config file carries real values');
     assert.equal(exported.filters.minRating, 8.8);

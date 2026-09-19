@@ -124,7 +124,7 @@ describe('config migration → v4 (tmdb_export + enrich cleanup)', () => {
       filters: {}, sources: {}, scoring: {}, ui: {}, general: {}, notify: { providers: [] }, backups: { maxKeep: 5 },
     }));
     const { cfg } = loadConfig(dir, {});
-    assert.equal(cfg.version, 5);
+    assert.equal(cfg.version, 6);
     assert.deepEqual(cfg.sources.tmdb_export, { on: false, weight: 0.9, topN: 150 });
     assert.ok(cfg.storage && 'historyMaxItems' in cfg.storage, 'storage section present');
     assert.equal(cfg.backups.intervalDays, 7);

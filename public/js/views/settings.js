@@ -8,6 +8,7 @@ let genresCache = { movie: null, tv: null };
 
 const TABS = [
   ['seerr', 'Media Server'],
+  ['integrations', 'Radarr / Sonarr'],
   ['tmdb', 'TMDB'],
   ['schedule', 'Расписание'],
   ['selection', 'Выборка'],
@@ -55,17 +56,28 @@ function markDirty(id) {
 function paintTab(id) {
   const form = document.getElementById('s-form');
   form.innerHTML = {
-    seerr: tabSeerr, tmdb: tabTmdb, schedule: tabSchedule, selection: tabSelection,
+    seerr: tabSeerr, integrations: tabIntegrations, tmdb: tabTmdb, schedule: tabSchedule, selection: tabSelection,
     filters: tabFilters, sources: tabSources, scoring: tabScoring,
     notify: tabNotify, backups: tabBackups, ui: tabUi, general: tabGeneral,
   }[id](cfg);
   bind(form, id);
+  if (id === 'integrations') bindIntegrations(form);
   if (id === 'notify') bindNotify(form);
   if (id === 'backups') loadBackups(form);
   if (id === 'general') bindGeneral(form);
 }
 
 /* ---------- существующие табы ---------- */
+const tabIntegrations = (c) => `
+  <div class="row" style="justify-content:space-between">
+    <h3>Интеграции</h3>
+    <button class="btn btn-accent" id="i-add">+ Добавить</button>
+  </div>
+  <div class="muted" style="margin-bottom:12px">Прямые запросы в Radarr / Sonarr в обход Seerr — как в \*arr-приложениях, где добавляют друг друга. Уже находящееся в библиотеке в подборку не попадает.</div>
+  <div id="i-list"></div>
+  <div id="i-editor" class="card hidden" style="box-shadow:none"></div>
+`;
+
 const tabSeerr = (c) => `
   <h3>Jellyseerr / Overseerr</h3>
   <div class="form-grid">
@@ -172,6 +184,16 @@ const tabSources = (c) => `
       </div>
       <div class="hint">Официальные публичные ежедневные выгрузки TMDB (files.tmdb.org). Работает при пустом ключе TMDB — достаточно ключа Seerr. Жанровые фильтры к этому источнику не применяются (в выгрузке нет жанров); постеры и описания недоступны. Данные обновляются раз в сутки, скачивание раз в 12 часов.</div>
     </div>
+    <div class="card" style="box-shadow:none">
+      <div class="field"><label class="switch"><input type="checkbox" data-src="tmdb_list" ${c.sources.tmdb_list?.on ? 'checked' : ''}><span class="track"></span>TMDB-списки (watchlist-коллекции, награды)</label></div>
+      <div class="row">
+        <div class="field" style="flex:1"><label>ID публичных списков TMDB (через запятую)</label>
+          <input class="input" data-path="sources.tmdb_list.ids" value="${esc(c.sources.tmdb_list?.ids || '')}" placeholder="8597513, 10"></div>
+        <div class="field" style="width:260px"><label>Вес</label>
+          <div class="range-row"><input type="range" min="0" max="1" step="0.1" data-srcw="tmdb_list" value="${c.sources.tmdb_list?.weight ?? 1}"><span class="range-val">${Number(c.sources.tmdb_list?.weight ?? 1).toFixed(1)}</span></div></div>
+      </div>
+      <div class="hint">Публичные списки TMDB (/list/{id}): откройте список → в URL будет list/ID. Требуется ключ TMDB. Подходит для «Оскар-2025» и подобных подборок.</div>
+    </div>
     <div class="row">
       <div class="field"><label>Страниц на источник</label><input class="input input-sm" type="number" min="1" max="5" data-path="sources.pages" value="${c.sources.pages}"></div>
       <div class="field"><label>Элементов на страницу</label><input class="input input-sm" type="number" min="20" max="100" data-path="sources.perPage" value="${c.sources.perPage}"></div>
@@ -188,6 +210,143 @@ const tabScoring = (c) => `
     <div class="field"><label>Любимые жанры</label>
       <div class="chips-select" data-genres="favorite">${renderGenreChips(c.scoring.favoriteGenres)}</div></div>
   </div>`;
+
+/* ---------- Интеграции (Radarr / Sonarr) ---------- */
+const INTEG_TYPES = { radarr: 'Radarr (фильмы)', sonarr: 'Sonarr (сериалы)' };
+
+function integrationsListHtml(list) {
+  if (!list.length) return '<div class="empty">Пока нет подключений — добавьте Radarr или Sonarr.</div>';
+  return `<div class="table-wrap"><table>
+    <thead><tr><th>Тип</th><th>Имя</th><th>URL</th><th>Профиль / Корень</th><th>Вкл</th><th></th></tr></thead>
+    <tbody>${list.map((i) => `
+      <tr>
+        <td><b>${INTEG_TYPES[i.type] || esc(i.type)}</b></td>
+        <td>${esc(i.name || '—')}</td>
+        <td class="muted">${esc(i.url)}</td>
+        <td class="muted">${esc(String(i.qualityProfileId || '—'))} · ${esc(i.rootFolderPath || '—')}</td>
+        <td><label class="switch"><input type="checkbox" data-ien="${esc(i.id)}" ${i.enabled ? 'checked' : ''}><span class="track"></span></label></td>
+        <td style="white-space:nowrap">
+          <button class="btn btn-sm" data-iedit="${esc(i.id)}">Изменить</button>
+          <button class="btn btn-sm btn-danger" data-idel="${esc(i.id)}">✕</button>
+        </td>
+      </tr>`).join('')}</tbody></table></div>`;
+}
+
+function integrationEditorForm(i, opts = {}) {
+  return `
+  <h3 style="margin-top:0">${i.id ? 'Изменить' : 'Добавить'} подключение</h3>
+  <div class="form-grid">
+    <div class="row">
+      <div class="field"><label>Тип</label>
+        <select class="input" id="ie-type" style="width:220px">
+          ${Object.entries(INTEG_TYPES).map(([k, v]) => `<option value="${k}" ${i.type === k ? 'selected' : ''}>${v}</option>`).join('')}
+        </select></div>
+      <div class="field"><label>Имя</label><input class="input" id="ie-name" value="${esc(i.name || '')}" placeholder="Radarr"></div>
+      <div class="field"><label>Включён</label><label class="switch"><input type="checkbox" id="ie-enabled" ${i.enabled ? 'checked' : ''}><span class="track"></span></label></div>
+    </div>
+    <div class="row">
+      <div class="field" style="flex:1"><label>Базовый URL</label>
+        <input class="input" id="ie-url" value="${esc(i.url || '')}" placeholder="http://192.168.1.50:7878"></div>
+      <div class="field" style="flex:1"><label>API-ключ (Настройки → General → API Key)</label>
+        <div class="row"><input class="input" type="password" id="ie-key" value="${esc(i.apiKey || '')}" style="flex:1">
+        <button class="btn btn-sm" data-toggle-pw>👁</button></div></div>
+</div>
+    <div class="row"><button class="btn" id="ie-test">Проверить и загрузить профили</button><span class="test-result" id="ie-result"></span></div>
+    <div class="row">
+      <div class="field"><label>Профиль качества</label>
+        <select class="input" id="ie-profile" style="width:280px">${(opts.profiles || []).map((p) => `<option value="${p.id}" ${Number(i.qualityProfileId) === Number(p.id) ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</select></div>
+      <div class="field"><label>Корневая папка</label>
+        <select class="input" id="ie-root" style="width:280px">${(opts.roots || []).map((r) => `<option value="${esc(r)}" ${i.rootFolderPath === r ? 'selected' : ''}>${esc(r)}</option>`).join('')}</select></div>
+    </div>
+    <div class="row-end">
+      <button class="btn" id="ie-cancel">Отмена</button>
+      <button class="btn btn-accent" id="ie-save">Готово</button>
+    </div>
+  </div>`;
+}
+
+function bindIntegrations(form) {
+  const listEl = form.querySelector('#i-list');
+  let editorState = { profiles: [], roots: [], inst: null };
+
+  const refresh = () => {
+    listEl.innerHTML = integrationsListHtml(cfg.integrations?.clients || []);
+    listEl.querySelectorAll('[data-ien]').forEach((el) => el.addEventListener('change', () => {
+      const cl = cfg.integrations.clients.find((x) => x.id === el.dataset.ien);
+      if (cl) cl.enabled = el.checked;
+      markDirty('integrations');
+    }));
+    listEl.querySelectorAll('[data-iedit]').forEach((b) => b.addEventListener('click', () => {
+      const cl = cfg.integrations.clients.find((x) => x.id === b.dataset.iedit);
+      if (cl) openEditor(structuredClone(cl));
+    }));
+    listEl.querySelectorAll('[data-idel]').forEach((b) => b.addEventListener('click', () => {
+      if (!confirm('Удалить подключение?')) return;
+      cfg.integrations.clients = cfg.integrations.clients.filter((x) => x.id !== b.dataset.idel);
+      markDirty('integrations');
+      refresh();
+    }));
+  };
+
+  const editorBox = () => form.querySelector('#i-editor');
+
+  function openEditor(inst) {
+    editorState.inst = inst;
+    const box = editorBox();
+    box.classList.remove('hidden');
+    box.innerHTML = integrationEditorForm(inst, editorState);
+    const q = (sel) => box.querySelector(sel);
+    q('[data-toggle-pw]')?.addEventListener('click', () => {
+      const inp = q('#ie-key'); inp.type = inp.type === 'password' ? 'text' : 'password';
+    });
+    q('#ie-cancel').addEventListener('click', () => box.classList.add('hidden'));
+    q('#ie-test').addEventListener('click', async () => {
+      const r = q('#ie-result');
+      r.textContent = 'подключаемся…'; r.className = 'test-result';
+      const res = await api('/api/v1/integrations/test', {
+        method: 'POST',
+        body: { type: q('#ie-type').value, url: q('#ie-url').value.trim(), apiKey: q('#ie-key').value.trim() },
+      });
+      if (res.ok) {
+        editorState.profiles = res.profiles || [];
+        editorState.roots = res.roots || [];
+        editorState.inst = { ...editorState.inst, qualityProfileId: editorState.inst.qualityProfileId || editorState.profiles[0]?.id || '', rootFolderPath: editorState.inst.rootFolderPath || editorState.roots[0] || '' };
+        openEditor(editorState.inst);
+        q('#ie-result').textContent = `${res.message} · профилей: ${editorState.profiles.length}, папок: ${editorState.roots.length}`;
+        q('#ie-result').className = 'test-result test-ok';
+      } else {
+        q('#ie-result').textContent = res.message || 'ошибка';
+        q('#ie-result').className = 'test-result test-fail';
+      }
+    });
+    q('#ie-save').addEventListener('click', () => {
+      const out = {
+        ...editorState.inst,
+        type: q('#ie-type').value,
+        name: q('#ie-name').value.trim() || (q('#ie-type').value === 'radarr' ? 'Radarr' : 'Sonarr'),
+        url: q('#ie-url').value.trim().replace(/\/+$/, ''),
+        apiKey: q('#ie-key').value.trim(),
+        qualityProfileId: q('#ie-profile').value || editorState.inst.qualityProfileId || '',
+        rootFolderPath: q('#ie-root').value || editorState.inst.rootFolderPath || '',
+        enabled: q('#ie-enabled').checked,
+      };
+      if (!out.id) out.id = `arr${Date.now()}`;
+      const idx = cfg.integrations.clients.findIndex((x) => x.id === out.id);
+      if (idx >= 0) cfg.integrations.clients[idx] = out; else cfg.integrations.clients.push(out);
+      markDirty('integrations');
+      box.classList.add('hidden');
+      refresh();
+      toast('Подключение сохранено — не забудьте «Сохранить всё»');
+    });
+  }
+
+  form.querySelector('#i-add').addEventListener('click', () => {
+    editorState = { profiles: [], roots: [], inst: null };
+    openEditor({ type: 'radarr', name: '', url: '', apiKey: '', qualityProfileId: '', rootFolderPath: '', enabled: true });
+  });
+
+  refresh();
+}
 
 /* ---------- NEW: Уведомления ---------- */
 const PROVIDER_TYPES = { telegram: 'Telegram', webhook: 'Webhook (Discord/ntfy)' };
