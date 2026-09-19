@@ -1,5 +1,9 @@
 name: release
 
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 on:
   push:
     branches: [main]
@@ -48,6 +52,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           for TAG in ${{ steps.plan.outputs.tags }}; do
+            # race guard: another workflow (main backfill on the same sha) may have created it
+            if gh release view "$TAG" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+              echo "release $TAG already exists — skipping"
+              continue
+            fi
             VER="${TAG#v}"
             # section for this version from CHANGELOG (until the next "## " header)
             awk -v ver="$VER" '
