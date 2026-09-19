@@ -26,11 +26,11 @@ const SAMPLE = [
 ];
 
 describe('tmdb export: parse + date fallback + cache', () => {
-  test('parseTop: popularity sort, adult excluded, topN respected', () => {
+  test('streamTop: popularity sort, adult excluded, topN respected', async () => {
     const exporter = createExporter({});
-    const top = exporter._parseTop(gzFixture(SAMPLE), 2, false);
+    const top = await exporter._streamTop(gzFixture(SAMPLE), 2, false);
     assert.deepEqual(top.map((x) => x.id), [968051, 27205], 'sorted by popularity, adult dropped');
-    const top3 = exporter._parseTop(gzFixture(SAMPLE), 3, true);
+    const top3 = await exporter._streamTop(gzFixture(SAMPLE), 3, true);
     assert.deepEqual(top3.map((x) => x.id), [968051, 999, 27205], 'includeAdult passes adult rows');
   });
 
@@ -115,7 +115,7 @@ describe('engine no-key cycle (Seerr only)', () => {
 });
 
 describe('config migration → v4 (tmdb_export + enrich cleanup)', () => {
-  test('v2 config gains tmdb_export source, loses nothing else', () => {
+  test('v2 config migrates to current version (tmdb_export source)', () => {
     const dir = tmpDir();
     fs.writeFileSync(path.join(dir, 'config.json'), JSON.stringify({
       version: 2, tmdb: { apiKey: 'K' }, seerr: { url: 'http://x', apiKey: 'S', tvSeasons: 'all' },
@@ -124,7 +124,10 @@ describe('config migration → v4 (tmdb_export + enrich cleanup)', () => {
       filters: {}, sources: {}, scoring: {}, ui: {}, general: {}, notify: { providers: [] }, backups: { maxKeep: 5 },
     }));
     const { cfg } = loadConfig(dir, {});
-    assert.equal(cfg.version, 4);
+    assert.equal(cfg.version, 5);
+    assert.deepEqual(cfg.sources.tmdb_export, { on: false, weight: 0.9, topN: 150 });
+    assert.ok(cfg.storage && 'historyMaxItems' in cfg.storage, 'storage section present');
+    assert.equal(cfg.backups.intervalDays, 7);
     assert.deepEqual(cfg.sources.tmdb_export, { on: false, weight: 0.9, topN: 150 });
     assert.equal(cfg.tmdb.apiKey, 'K');
     assert.equal('enrich' in cfg, false, 'experimental enrich section cleaned up');

@@ -19,22 +19,24 @@ import { createBackupManager } from './lib/backup.js';
 import { makeOutboundFetch } from './lib/proxy.js';
 import { createExporter } from './lib/export.js';
 
-const APP_VERSION = '0.4.0';
+const APP_VERSION = '0.5.0';
 const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
 const DATA_DIR = process.env.ADVARR_DATA_DIR || path.join(__dirname, 'data');
 
 fs.mkdirSync(DATA_DIR, { recursive: true });
 
-const logger = createLogger(1000);
+const logger = createLogger(500); // hard cap; runtime buffer size set from config below
+const pipeStream = (a, b) => _streamPipeline(a, b);
 
 // ---------- stores ----------
 const { store: configStore } = loadConfig(DATA_DIR, process.env);
-const historyStore = new JsonStore(path.join(DATA_DIR, 'history.json'), { items: [] });
+const historyStore = new JsonStore(path.join(DATA_DIR, 'history.json'), { items: [] }, { debounceMs: configStore.data.storage.writeDebounceMs });
 historyStore.load();
-const runsStore = new JsonStore(path.join(DATA_DIR, 'runs.json'), { runs: [] });
+const runsStore = new JsonStore(path.join(DATA_DIR, 'runs.json'), { runs: [] }, { debounceMs: configStore.data.storage.writeDebounceMs });
 runsStore.load();
 
 logger.setLevel(configStore.data.general.logLevel || 'info');
+// note: buffer size is fixed per boot; level is live-adjustable
 
 // ---------- outbound (proxy-aware) ----------
 const outboundRef = { fn: null };
@@ -136,6 +138,7 @@ const SECRET_PATHS = [
 
 function applyLiveEffects() {
   logger.setLevel(configStore.data.general.logLevel || 'info');
+// note: buffer size is fixed per boot; level is live-adjustable
   rebuildOutbound();
   clients.tmdb = buildTmdb();
   clients.seerr = buildSeerr();
@@ -282,6 +285,41 @@ app.post('/api/v1/settings/test-seerr', async (ctx) => {
   }
 });
 
+// ---------- system: config export/import (Radarr config.xml parity) ----------
+app.get('/api/v1/system/config/download', (ctx) => {
+  const buf = Buffer.from(JSON.stringify(configStore.data, null, 2));
+  ctx.res.writeHead(200, {
+    'Content-Type': 'application/json',
+    'Content-Disposition': `attachment; filename="advarr.config.v${configStore.data.version}.json"`,
+    'Content-Length': buf.length,
+    'Cache-Control': 'no-store',
+  });
+  ctx.res.end(buf);
+});
+
+app.post('/api/v1/system/config/import', async (ctx) => {
+  const incoming = ctx.body;
+  if (!incoming || typeof incoming !== 'object' || Array.isArray(incoming) || !incoming.version) {
+    return json(ctx, 400, { error: 'файл не похож на конфигурацию Advarr' });
+  }
+  try {
+    const { applyPatch, restoreProviderSecrets } = await import('./lib/config.js');
+    const oldCfg = structuredClone(configStore.data);
+    // mask semantics do not apply: exported files contain real values
+    applyPatch(configStore.data, incoming);
+    configStore.saveNow();
+    applyLiveEffects();
+    const target = effectiveBinding();
+    const rebound = (target.host !== currentBinding.host || target.port !== currentBinding.port)
+      ? scheduleRebind()
+      : { changed: false, ...currentBinding };
+    logger.log('configuration imported from file');
+    json(ctx, 200, { ok: true, rebound, version: configStore.data.version });
+  } catch (err) {
+    json(ctx, 400, { error: `импорт не удался: ${err.message}` });
+  }
+});
+
 // ---------- notifications ----------
 app.post('/api/v1/notify/test', async (ctx) => {
   const provider = ctx.body?.provider;
@@ -420,17 +458,38 @@ app.get('/img/poster', async (ctx) => {
   }
   try {
     const upstream = await dynamicOutbound(`https://image.tmdb.org/t/p/${size}${p}`, { signal: AbortSignal.timeout(10000) });
-    if (!upstream.ok) return json(ctx, 502, { error: `upstream ${upstream.status}` });
-    const buf = Buffer.from(await upstream.arrayBuffer());
+    if (!upstream.ok || !upstream.body) return json(ctx, 502, { error: `upstream ${upstream.status}` });
+    // stream through without buffering the whole image in RAM
     ctx.res.writeHead(200, {
       'Content-Type': upstream.headers.get('content-type') || 'image/jpeg',
-      'Cache-Control': 'public, max-age=604800, immutable',
+      'Cache-Control': `public, max-age=${Math.min(604800, (configStore.data.storage.posterCacheHours || 168) * 3600)}, immutable`,
     });
-    ctx.res.end(buf);
+    await pipeStream(upstream.body, ctx.res);
   } catch (err) {
-    json(ctx, 504, { error: `poster fetch failed: ${err.message}` });
+    if (!ctx.res.headersSent) json(ctx, 504, { error: `poster fetch failed: ${err.message}` });
+    else ctx.res.destroy();
   }
 });
+
+// ---------- scheduled backups (Radarr-style) ----------
+function lastBackupAt() {
+  const items = backup.list();
+  return items.length ? Date.parse(items[0].modifiedAt) : 0;
+}
+function checkScheduledBackup() {
+  const days = Number(configStore.data.backups?.intervalDays ?? 7);
+  if (!days || days <= 0) return;
+  const last = lastBackupAt();
+  if (Date.now() - last < days * 86400e3) return;
+  try {
+    backup.create();
+  } catch (err) {
+    logger.error(`scheduled backup failed: ${err.message}`);
+  }
+}
+const backupTimer = setInterval(checkScheduledBackup, 3600e3);
+backupTimer.unref?.();
+checkScheduledBackup(); // evaluate once at boot
 
 // ---------- boot ----------
 httpServer = app.listen(currentBinding.port, currentBinding.host, () => {

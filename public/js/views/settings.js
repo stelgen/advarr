@@ -352,7 +352,18 @@ function tabBackups(c) {
       <h3>Бэкапы</h3>
       <button class="btn btn-accent" id="b-now">Сделать бэкап</button>
     </div>
-    <div class="muted" style="margin-bottom:12px">Снапшот настроек, истории и прогонов. Восстановление применяется на лету, без перезапуска. Хранится максимум ${c.backups?.maxKeep ?? 30} шт.</div>
+    <div class="form-grid" style="margin-bottom:12px">
+      <div class="row">
+        <div class="field"><label>Автобэкап каждые, дней (0 = выкл.)</label>
+          <input class="input input-sm" type="number" min="0" max="365" data-path="backups.intervalDays" value="${c.backups?.intervalDays ?? 7}"></div>
+        <div class="field"><label>Хранить максимум</label>
+          <input class="input input-sm" type="number" min="1" max="365" data-path="backups.maxKeep" value="${c.backups?.maxKeep ?? 30}"></div>
+        <div class="field" style="flex:1"><label>Папка (пусто = &lt;data&gt;/backups)</label>
+          <input class="input" data-path="backups.folder" value="${esc(c.backups?.folder || '')}" placeholder="/mnt/backups/advarr"></div>
+      </div>
+      <div class="hint">Как в Radarr: расписание + ротация. Папка должна быть смонтирована в контейнер (volume), иначе используйте стандартную.</div>
+    </div>
+    <div class="muted" style="margin-bottom:12px">Снапшот настроек, истории и прогонов. Восстановление применяется на лету, без перезапуска.</div>
     <div id="b-list"><div class="spin-wrap"><span class="spinner"></span>Загрузка…</div></div>`;
 }
 
@@ -471,6 +482,31 @@ function tabGeneral(c) {
     </div>
 
     <div class="card" style="box-shadow:none">
+      <h3 style="margin-top:0">Экспорт / импорт конфигурации</h3>
+      <div class="row">
+        <a class="btn" id="g-cfg-dl" href="/api/v1/system/config/download${getApiKey() ? `?apikey=${encodeURIComponent(getApiKey())}` : ''}">Скачать файл конфигурации</a>
+        <label class="btn" style="cursor:pointer">Импортировать файл
+          <input type="file" id="g-cfg-up" accept="application/json,.json" style="display:none">
+        </label>
+        <span class="test-result" id="g-cfg-result"></span>
+      </div>
+      <div class="hint">Как в Radarr: один файл со всеми настройками (включая ключи — храните защищённо). Импорт заменяет настройки и применяется на лету.</div>
+    </div>
+
+    <div class="card" style="box-shadow:none">
+      <h3 style="margin-top:0">Ресурсы (RAM / SSD)</h3>
+      <div class="row">
+        <div class="field"><label>Записей в истории (макс.)</label>
+          <input class="input input-sm" type="number" min="100" max="20000" data-path="storage.historyMaxItems" value="${c.storage?.historyMaxItems ?? 2000}"></div>
+        <div class="field"><label>Строк логов в памяти</label>
+          <input class="input input-sm" type="number" min="100" max="5000" data-path="storage.logBuffer" value="${c.storage?.logBuffer ?? 500}"></div>
+        <div class="field"><label>Кэш постеров, часов</label>
+          <input class="input input-sm" type="number" min="1" max="720" data-path="storage.posterCacheHours" value="${c.storage?.posterCacheHours ?? 168}"></div>
+      </div>
+      <div class="hint">Дебаунс записи сторов: ${c.storage?.writeDebounceMs ?? 1000} мс; идентичные состояния не записываются на диск. Меньше строк истории/логов — меньше RAM и записей в SSD.</div>
+    </div>
+
+    <div class="card" style="box-shadow:none">
       <h3 style="margin-top:0">Логирование</h3>
       <div class="field"><label>Уровень логов</label>
         <select class="input" data-path="general.logLevel" style="width:260px">
@@ -489,6 +525,24 @@ function bindGeneral(form) {
   };
   authSel.addEventListener('change', syncAuth);
   syncAuth();
+  form.querySelector('#g-cfg-up').addEventListener('change', async (ev) => {
+    const file = ev.target.files?.[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const cfgObj = JSON.parse(text);
+      if (!confirm('Заменить текущие настройки содержимым файла?')) return;
+      const res = await api('/api/v1/system/config/import', { method: 'POST', body: cfgObj });
+      cfg = await api('/api/v1/settings');
+      dirty.clear();
+      document.querySelectorAll('#s-tabs .dirty').forEach((d) => d.classList.add('hidden'));
+      document.getElementById('s-dirty-note').textContent = '';
+      toast(`Конфигурация импортирована (v${res.version})`);
+      paintTab('general');
+    } catch (err) {
+      toast(`Импорт: ${err.message}`, 'err');
+    }
+  });
   form.querySelector('#g-genkey').addEventListener('click', () => {
     const hex = Array.from(crypto.getRandomValues(new Uint8Array(32))).map((b) => b.toString(16).padStart(2, '0')).join('');
     const inp = form.querySelector('[data-path="general.authentication.apiKey"]');

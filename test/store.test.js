@@ -23,14 +23,14 @@ test('load(): stored keys override defaults, defaults merged under stored', () =
   assert.deepEqual(s.load(), { a: 42, b: 'default-b', extra: 'keep-me' });
 });
 
-test('update() mutates and persists through the debounce (~300ms)', async () => {
+test('update() mutates and persists through the debounce', async () => {
   const file = path.join(dir, 'debounce.json');
-  const s = new JsonStore(file, { n: 0, tags: [] });
+  const s = new JsonStore(file, { n: 0, tags: [] }, { debounceMs: 120, skipUnchanged: false });
   s.load();
   const returned = s.update((d) => { d.n = 7; d.tags.push('ok'); });
   assert.deepEqual(returned, { n: 7, tags: ['ok'] });          // in-memory immediately
   assert.equal(JSON.parse(fs.readFileSync(file, 'utf8')).n, 0); // not yet flushed
-  await sleep(450); // > 300ms debounce
+  await sleep(200); // > debounce
   const onDisk = JSON.parse(fs.readFileSync(file, 'utf8'));
   assert.equal(onDisk.n, 7);
   assert.deepEqual(onDisk.tags, ['ok']);

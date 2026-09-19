@@ -1,5 +1,12 @@
 # Advarr API v1 (internal contract)
 
+## v0.5.0 additions
+- `GET /api/v1/system/config/download` → файл `advarr.config.vN.json` со всеми настройками
+  (значения ключей НЕ маскируются — parity с config.xml Radarr; эндпоинт за auth)
+- `POST /api/v1/system/config/import` ← полный конфиг JSON → применяется на лету (не требует рестарта), возможен ре-бинд порта
+- config v5: `storage{historyMaxItems, logBuffer, writeDebounceMs, posterCacheHours}`,
+  `backups{intervalDays, folder}` (расписание и кастомная папка бэкапов — Radarr parity)
+
 ## v0.4.0 additions
 - config v4: `sources.tmdb_export = {on, weight, topN}` — источник без API-ключа
   (официальные публичные выгрузки files.tmdb.org; поля id/title/popularity/vote_average/vote_count/date/adult,
