@@ -14,7 +14,6 @@ const TABS = [
   ['filters', 'Фильтры'],
   ['sources', 'Источники'],
   ['scoring', 'Скоринг'],
-  ['metadata', 'Метаданные'],
   ['notify', 'Уведомления'],
   ['backups', 'Бэкапы'],
   ['ui', 'Интерфейс'],
@@ -57,14 +56,13 @@ function paintTab(id) {
   const form = document.getElementById('s-form');
   form.innerHTML = {
     seerr: tabSeerr, tmdb: tabTmdb, schedule: tabSchedule, selection: tabSelection,
-    filters: tabFilters, sources: tabSources, scoring: tabScoring, metadata: tabMetadata,
+    filters: tabFilters, sources: tabSources, scoring: tabScoring,
     notify: tabNotify, backups: tabBackups, ui: tabUi, general: tabGeneral,
   }[id](cfg);
   bind(form, id);
   if (id === 'notify') bindNotify(form);
   if (id === 'backups') loadBackups(form);
   if (id === 'general') bindGeneral(form);
-  if (id === 'metadata') bindMetadata(form);
 }
 
 /* ---------- существующие табы ---------- */
@@ -164,6 +162,16 @@ const tabSources = (c) => `
         <input class="input" data-path="sources.discover.params" value="${esc(c.sources.discover.params)}" placeholder="with_genres=878&sort_by=popularity.desc">
         <div class="hint">Подставляется в /movie/discover и /tv/discover</div></div>
     </div>
+    <div class="card" style="box-shadow:none">
+      <div class="field"><label class="switch"><input type="checkbox" data-src="tmdb_export" ${c.sources.tmdb_export.on ? 'checked' : ''}><span class="track"></span>TMDB Daily Export — без API-ключа</label></div>
+      <div class="row">
+        <div class="field"><label>Кандидатов за выгрузку (топ по популярности)</label>
+          <input class="input input-sm" type="number" min="20" max="500" data-path="sources.tmdb_export.topN" value="${c.sources.tmdb_export.topN}"></div>
+        <div class="field" style="width:260px"><label>Вес</label>
+          <div class="range-row"><input type="range" min="0" max="1" step="0.1" data-srcw="tmdb_export" value="${c.sources.tmdb_export.weight}"><span class="range-val">${Number(c.sources.tmdb_export.weight).toFixed(1)}</span></div></div>
+      </div>
+      <div class="hint">Официальные публичные ежедневные выгрузки TMDB (files.tmdb.org). Работает при пустом ключе TMDB — достаточно ключа Seerr. Жанровые фильтры к этому источнику не применяются (в выгрузке нет жанров); постеры и описания недоступны. Данные обновляются раз в сутки, скачивание раз в 12 часов.</div>
+    </div>
     <div class="row">
       <div class="field"><label>Страниц на источник</label><input class="input input-sm" type="number" min="1" max="5" data-path="sources.pages" value="${c.sources.pages}"></div>
       <div class="field"><label>Элементов на страницу</label><input class="input input-sm" type="number" min="20" max="100" data-path="sources.perPage" value="${c.sources.perPage}"></div>
@@ -180,63 +188,6 @@ const tabScoring = (c) => `
     <div class="field"><label>Любимые жанры</label>
       <div class="chips-select" data-genres="favorite">${renderGenreChips(c.scoring.favoriteGenres)}</div></div>
   </div>`;
-
-/* ---------- NEW: Метаданные (обогащение) ---------- */
-const ENRICH_PROVIDERS = [
-  ['tmdb', 'TMDB (ваш ключ; актёры, режиссёры, external IDs)'],
-  ['imdb', 'IMDb suggestion (публичный, без ключа; топ-актёры)'],
-  ['tvdb', 'TheTVDB v4 (их ключ + PIN; сериалы — актёры)'],
-];
-
-function tabMetadata(c) {
-  const e = c.enrich;
-  return `
-  <h3>Метаданные (обогащение)</h3>
-  <div class="muted" style="margin-bottom:12px">Расширяет карточку «Подробнее» в Подборке: актёры, режиссёры, внешние ID.
-  Провайдеры опрашиваются в порядке приоритета; последующие дозаполняют только недостающие поля.
-  Работает даже без ключа TMDB — достаточно публичного провайдера.</div>
-  <div class="form-grid">
-    <div class="field"><label class="switch"><input type="checkbox" data-path="enrich.enabled" ${e.enabled ? 'checked' : ''}><span class="track"></span>Включить обогащение</label></div>
-    <div class="field"><label>Провайдеры (приоритет сверху вниз)</label>
-      <div class="form-grid" id="e-providers">
-        ${ENRICH_PROVIDERS.map(([id, label]) => `
-          <label class="switch"><input type="checkbox" data-ep="${id}" ${e.providers.includes(id) ? 'checked' : ''}><span class="track"></span>${label}</label>`).join('')}
-      </div></div>
-    <div class="card" style="box-shadow:none">
-      <h3 style="margin-top:0">TheTVDB v4</h3>
-      <div class="row">
-        <div class="field"><label>API-ключ</label>
-          <input class="input" type="password" data-path="enrich.tvdb.apiKey" value="${esc(e.tvdb.apiKey)}"></div>
-        <div class="field"><label>PIN (если ключ подписочный)</label>
-          <input class="input" type="password" data-path="enrich.tvdb.pin" value="${esc(e.tvdb.pin)}"></div>
-      </div>
-      <div class="hint">thetvdb.com → API Access. Ключ бесплатный, токен живёт месяц.</div>
-    </div>
-    <div class="row">
-      <div class="field"><label>Пробный запрос</label>
-        <input class="input" id="e-test-title" value="Inception" style="width:240px"></div>
-      <button class="btn" id="e-test" style="align-self:flex-end">Проверить обогащение</button>
-      <span class="test-result" id="e-result"></span>
-    </div>
-  </div>`;
-}
-
-function bindMetadata(form) {
-  const canon = ENRICH_PROVIDERS.map(([id]) => id);
-  form.querySelectorAll('[data-ep]').forEach((el) => el.addEventListener('change', () => {
-    const set = new Set(cfg.enrich.providers.filter((p) => canon.includes(p)));
-    el.checked ? set.add(el.dataset.ep) : set.delete(el.dataset.ep);
-    cfg.enrich.providers = canon.filter((p) => set.has(p));
-    markDirty('metadata');
-  }));
-  form.querySelector('#e-test').addEventListener('click', async () => {
-    const r = form.querySelector('#e-result');
-    r.textContent = 'опрашиваем провайдеры…'; r.className = 'test-result';
-    const res = await api('/api/v1/enrich/test', { method: 'POST', body: { provider: 'imdb', title: form.querySelector('#e-test-title').value.trim(), mediaType: 'movie', year: 2010 } });
-    r.textContent = res.ok ? `Провайдер ответил: актёров — ${res.castCount}${res.imdbId ? `, ID ${res.imdbId}` : ''}` : (res.message || 'ошибка');
-    r.className = `test-result ${res.ok ? 'test-ok' : 'test-fail'}`;
-  });
-}
 
 /* ---------- NEW: Уведомления ---------- */
 const PROVIDER_TYPES = { telegram: 'Telegram', webhook: 'Webhook (Discord/ntfy)' };

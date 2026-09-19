@@ -1,191 +1,121 @@
-// Advarr v0.4.0 — metadata enrichment: providers, merge, fallback, cache, migration.
+// Advarr v0.4.0 — keyless discovery: TMDB Daily Export source, noGenres, full Seerr-only cycle.
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { createEnrich } from '../lib/enrich.js';
-import { defaultConfig, loadConfig, applyPatch } from '../lib/config.js';
+import zlib from 'node:zlib';
+import { createExporter } from '../lib/export.js';
+import { createEngine } from '../lib/engine.js';
+import { defaultConfig, applyPatch, loadConfig } from '../lib/config.js';
 import { JsonStore } from '../lib/store.js';
+import { passesFilters } from '../lib/scoring.js';
 
 function tmpDir() { return fs.mkdtempSync(path.join(os.tmpdir(), 'advarr040-')); }
-function jsonOk(obj) { return { ok: true, status: 200, json: async () => obj }; }
+function storeIn(dir, name, def) { const s = new JsonStore(path.join(dir, name), def); s.load(); return s; }
 
-function makeEnrich({ providers = ['imdb'], tmdbKey = '', stub } = {}) {
-  const dir = tmpDir();
-  const cfg = new JsonStore(path.join(dir, 'config.json'), defaultConfig());
-  cfg.load();
-  applyPatch(cfg.data, { tmdb: { apiKey: tmdbKey }, enrich: { enabled: true, providers } });
-  const fetchCalls = [];
-  const fetchImpl = async (url, opts = {}) => {
-    fetchCalls.push(String(url));
-    if (stub) return stub(String(url), opts);
-    throw new Error('no stub for ' + url);
-  };
-  const logger = { log: () => {}, warn: () => {}, error: () => {}, debug: () => {} };
-  const enrich = createEnrich({ configStore: cfg, fetchImpl, logger });
-  return { enrich, fetchCalls };
+function gzFixture(rows) {
+  return zlib.gzipSync(rows.map((r) => JSON.stringify(r)).join('\n'));
 }
 
-describe('enrich: imdb provider (public, no key)', () => {
-  test('parses suggestion payload: cast, imdb id, year match', async () => {
-    const { enrich, fetchCalls } = makeEnrich({
-      providers: ['imdb'],
-      stub: (url) => {
-        assert.match(url, /v3\.sg\.media-imdb\.com\/suggestion\/x\/inception\.json/);
-        return jsonOk({ d: [
-          { l: 'Inception', y: 2010, q: 'feature', id: 'tt1375666', s: 'Leonardo DiCaprio, Joseph Gordon-Levitt', i: { imageUrl: 'https://imdb/img.jpg' } },
-          { l: 'Inception: The Cobol Job', y: 2010, q: 'feature', id: 'tt5295894' },
-        ] });
-      },
-    });
-    const r = await enrich.enrich({ mediaType: 'movie', tmdbId: 27205, title: 'Inception', year: 2010 });
-    assert.equal(r.ok, true);
-    assert.equal(r.provider, 'imdb');
-    assert.deepEqual(r.cast, ['Leonardo DiCaprio', 'Joseph Gordon-Levitt']);
-    assert.equal(r.externalIds.imdbId, 'tt1375666');
-    assert.equal(r.year, 2010);
-    assert.equal(r.posterUrl, 'https://imdb/img.jpg');
-    assert.equal(fetchCalls.length, 1);
+const SAMPLE = [
+  { id: 27205, title: 'Inception', original_title: 'Inception', popularity: 55.3, vote_average: 8.4, vote_count: 34000, release_date: '2010-07-16', adult: false },
+  { id: 968051, title: 'The Monkey', original_title: 'The Monkey', popularity: 930.2, vote_average: 6.8, vote_count: 700, release_date: '2025-02-20', adult: false },
+  { id: 999, title: 'Adult Thing', original_title: 'Adult Thing', popularity: 500.0, vote_average: 5.0, vote_count: 100, release_date: '2024-01-01', adult: true },
+  { id: 998, title: 'No Pop', original_title: 'No Pop', popularity: 0, vote_average: 7.0, vote_count: 10, release_date: '2023-01-01', adult: false },
+];
+
+describe('tmdb export: parse + date fallback + cache', () => {
+  test('parseTop: popularity sort, adult excluded, topN respected', () => {
+    const exporter = createExporter({});
+    const top = exporter._parseTop(gzFixture(SAMPLE), 2, false);
+    assert.deepEqual(top.map((x) => x.id), [968051, 27205], 'sorted by popularity, adult dropped');
+    const top3 = exporter._parseTop(gzFixture(SAMPLE), 3, true);
+    assert.deepEqual(top3.map((x) => x.id), [968051, 999, 27205], 'includeAdult passes adult rows');
   });
 
-  test('falls back to first feature entry when year does not match', async () => {
-    const { enrich } = makeEnrich({
-      providers: ['imdb'],
-      stub: () => jsonOk({ d: [{ l: 'Wrong Year', y: 1999, q: 'feature', id: 'tt0000002' }] }),
-    });
-    const r = await enrich.enrich({ mediaType: 'movie', tmdbId: 1, title: 'Inception', year: 2010 });
-    assert.equal(r.externalIds.imdbId, 'tt0000002');
-  });
-});
-
-describe('enrich: tmdb provider (credits)', () => {
-  test('maps cast, directors and imdb external id', async () => {
-    const { enrich, fetchCalls } = makeEnrich({
-      providers: ['tmdb'],
-      tmdbKey: 'KEY',
-      stub: (url) => {
-        assert.match(url, /append_to_response=credits,external_ids/);
-        assert.match(url, /api_key=KEY/);
-        return jsonOk({
-          title: 'Inception', release_date: '2010-07-16', overview: 'Dreams.',
-          credits: {
-            cast: [{ name: 'Leonardo DiCaprio' }, { name: 'Elliot Page' }],
-            crew: [{ name: 'Christopher Nolan', job: 'Director' }, { name: 'Someone', job: 'Writer' }],
-          },
-          external_ids: { imdb_id: 'tt1375666' },
-        });
+  test('fetchTop: yesterday 404 → day-2 succeeds; cache prevents refetch', async () => {
+    const calls = [];
+    const exporter = createExporter({
+      fetchImpl: async (url) => {
+        calls.push(String(url));
+        if (calls.length === 1) return { ok: false, status: 404 };
+        return { ok: true, status: 200, arrayBuffer: async () => gzFixture(SAMPLE) };
       },
     });
-    const r = await enrich.enrich({ mediaType: 'movie', tmdbId: 27205, title: 'Inception', year: 2010 });
-    assert.equal(r.provider, 'tmdb');
-    assert.deepEqual(r.cast, ['Leonardo DiCaprio', 'Elliot Page']);
-    assert.deepEqual(r.directors, ['Christopher Nolan']);
-    assert.equal(r.externalIds.imdbId, 'tt1375666');
-    assert.equal(fetchCalls.length, 1);
+    const items = await exporter.fetchTop('movie', { topN: 10 });
+    assert.equal(items.length, 2, 'adult and zero-popularity rows dropped');
+    assert.equal(calls.length, 2, 'one 404 fallback');
+    await exporter.fetchTop('movie', { topN: 10 });
+    assert.equal(calls.length, 2, '12h cache prevents second download');
+  });
+
+  test('exportUrl shape (movie vs tv)', () => {
+    const exporter = createExporter({});
+    const d = new Date('2026-09-18T12:00:00Z');
+    assert.match(exporter.exportUrl('movie', d), /movie_ids_09_18_2026\.json\.gz$/);
+    assert.match(exporter.exportUrl('tv', d), /tv_series_ids_09_18_2026\.json\.gz$/);
+    assert.ok(exporter.exportUrl('movie', d).startsWith('https://files.tmdb.org/p/exports/'));
   });
 });
 
-describe('enrich: tvdb provider (v4 login → search → extended)', () => {
-  test('series: token cached, remote imdb id and characters mapped', async () => {
-    const { enrich, fetchCalls } = makeEnrich({
-      providers: ['tvdb'],
-      stub: (url, opts = {}) => {
-        if (url.includes('/v4/login')) {
-          assert.deepEqual(JSON.parse(opts.body), { apikey: 'TVDBKEY', pin: '1234' });
-          return jsonOk({ data: { token: 'T0K3N' } });
-        }
-        if (url.includes('/v4/search')) {
-          assert.equal(opts.headers.Authorization, 'Bearer T0K3N');
-          return jsonOk({ data: [
-            { type: 'series', tvdbId: 73739, name: 'Severance', year: '2022', remote_ids: [{ sourceName: 'IMDb', id: 'tt11280740' }] },
-            { type: 'movie', tvdbId: 1, name: 'x' },
-          ] });
-        }
-        if (url.includes('/v4/series/73739/extended')) {
-          return jsonOk({ data: { overview: 'Lumon.', characters: [{ name: 'Mark S.', personName: 'Adam Scott' }, { name: 'Helly R.', personName: 'Britt Lower' }] } });
-        }
-        throw new Error('unexpected url ' + url);
-      },
-    });
-    // pin configured
+describe('noGenres: export candidates bypass genre filters', () => {
+  test('genre filters ignored when candidate has no genre data', () => {
+    const c = {
+      adult: false, voteCount: 500, voteAverage: 7, year: 2025,
+      originalLanguage: 'en', genreIds: [], noGenres: true,
+    };
+    const strict = { minVotes: 100, minRating: 5, yearFrom: 2000, yearTo: 0, includeGenres: [878], excludeGenres: [27], languages: [] };
+    assert.equal(passesFilters(c, strict).ok, true, 'genre include/exclude skipped for export candidates');
+    const withGenres = { ...c, noGenres: false, genreIds: [27] };
+    assert.equal(passesFilters(withGenres, strict).ok, false, 'regular candidates still filtered');
+  });
+});
+
+describe('engine no-key cycle (Seerr only)', () => {
+  test('tmdb_export source → dedup → request via seerr, no TMDB key anywhere', async () => {
     const dir = tmpDir();
-    const cfg = new JsonStore(path.join(dir, 'config.json'), defaultConfig());
-    cfg.load();
-    applyPatch(cfg.data, { enrich: { enabled: true, providers: ['tvdb'], tvdb: { apiKey: 'TVDBKEY', pin: '1234' } } });
-    const n = createEnrich({ configStore: cfg, fetchImpl: async (u, o) => {
-      if (String(u).includes('/v4/login')) return jsonOk({ data: { token: 'T0K3N' } });
-      if (String(u).includes('/v4/search')) return jsonOk({ data: [{ type: 'series', tvdbId: 73739, name: 'Severance', year: '2022', remote_ids: [{ sourceName: 'IMDb', id: 'tt11280740' }] }] });
-      if (String(u).includes('/extended')) return jsonOk({ data: { overview: 'Lumon.', characters: [{ personName: 'Adam Scott' }, { personName: 'Britt Lower' }] } });
-      throw new Error('unexpected ' + u);
-    }, logger: { log: () => {}, warn: () => {}, error: () => {}, debug: () => {} } });
-    const r = await n.enrich({ mediaType: 'tv', tmdbId: 9, title: 'Severance', year: 2022 });
-    assert.equal(r.provider, 'tvdb');
-    assert.deepEqual(r.cast, ['Adam Scott', 'Britt Lower']);
-    assert.equal(r.externalIds.imdbId, 'tt11280740');
-    assert.equal(r.externalIds.tvdbId, 73739);
+    const cfg = storeIn(dir, 'config.json', defaultConfig());
+    applyPatch(cfg.data, {
+      seerr: { url: 'http://seerr.mock', apiKey: 'S' },
+      // намеренно НЕ задаём tmdb.apiKey
+      sources: { pages: 1, trending_day: { on: false }, trending_week: { on: false }, popular: { on: false }, tmdb_export: { on: true, weight: 1, topN: 50 } },
+      selection: { mediaTypes: ['movie'], moviesPerRun: 3, showsPerRun: 0 },
+      filters: { minVotes: 100, minRating: 5, yearFrom: 0, includeGenres: [28], excludeGenres: [], checkAvailability: false },
+    });
+    const hist = storeIn(dir, 'history.json', { items: [] });
+    const runs = storeIn(dir, 'runs.json', { runs: [] });
+
+    const exporter = createExporter({
+      fetchImpl: async () => ({ ok: true, status: 200, arrayBuffer: async () => gzFixture(SAMPLE) }),
+    });
+    const requested = [];
+    const seerr = {
+      existingRequests: async () => new Set(),
+      mediaStatus: async () => ({ status: 1, known: false }),
+      request: async (payload) => { requested.push(payload); return { id: 1 }; },
+    };
+    const logger = { log: () => {}, warn: () => {}, error: () => {}, debug: () => {} };
+    const engine = createEngine({
+      configStore: cfg, historyStore: hist, runsStore: runs,
+      getClients: () => ({ tmdb: {}, seerr, exporter }), logger,
+    });
+
+    const report = await engine.run();
+    assert.equal(cfg.data.tmdb.apiKey, '', 'no TMDB key configured');
+    assert.equal(report.requested, 2, 'export rows minus adult; zero-popularity dropped by scorer ranking tail');
+    assert.deepEqual(requested.map((r) => r.tmdbId).sort((a, b) => b - a), [968051, 27205]);
+    assert.ok(requested.every((r) => typeof r.tmdbId === 'number'));
+    assert.equal(hist.data.items.length, 2);
+
+    // dedup: second run requests nothing new
+    await engine.run();
+    assert.equal(requested.length, 2, 'no duplicates on second run');
   });
 });
 
-describe('enrich: merge, fallback, cache, disable', () => {
-  test('later provider fills only missing fields', async () => {
-    const { enrich, fetchCalls } = makeEnrich({
-      providers: ['tmdb', 'imdb'],
-      tmdbKey: 'KEY',
-      stub: (url) => {
-        if (url.includes('api.themoviedb.org')) {
-          return jsonOk({ title: 'T', overview: 'From TMDB', credits: { cast: [], crew: [] }, external_ids: {} });
-        }
-        return jsonOk({ d: [{ l: 'T', y: 2020, q: 'feature', id: 'tt111', s: 'Actor A, Actor B' }] });
-      },
-    });
-    const r = await enrich.enrich({ mediaType: 'movie', tmdbId: 5, title: 'T', year: 2020 });
-    assert.equal(r.provider, 'tmdb');
-    assert.equal(r.overview, 'From TMDB');
-    assert.deepEqual(r.cast, ['Actor A', 'Actor B'], 'empty tmdb cast filled from imdb');
-    assert.equal(r.externalIds.imdbId, 'tt111');
-    assert.equal(fetchCalls.length, 2);
-  });
-
-  test('all providers failed → ok:false with attempts', async () => {
-    const { enrich, fetchCalls } = makeEnrich({
-      providers: ['imdb', 'tvdb'],
-      stub: () => { throw new Error('network down'); },
-    });
-    const r = await enrich.enrich({ mediaType: 'movie', tmdbId: 5, title: 'T', year: 2020 });
-    assert.equal(r.ok, false);
-    assert.equal(r.attempts.length, 2, 'both providers attempted');
-    assert.ok(r.attempts.every((a) => a.ok === false));
-    // imdb fails during fetch (1 call); tvdb fails at login (no key configured) before any fetch
-    assert.equal(fetchCalls.length, 1);
-  });
-
-  test('cache: second call performs no fetches', async () => {
-    let calls = 0;
-    const { enrich } = makeEnrich({
-      providers: ['imdb'],
-      stub: () => { calls += 1; return jsonOk({ d: [{ l: 'T', y: 2020, q: 'feature', id: 'tt1' }] }); },
-    });
-    await enrich.enrich({ mediaType: 'movie', tmdbId: 9, title: 'T', year: 2020 });
-    const r2 = await enrich.enrich({ mediaType: 'movie', tmdbId: 9, title: 'T', year: 2020 });
-    assert.equal(r2.cached, true);
-    assert.equal(calls, 1);
-  });
-
-  test('disabled → ok:false with reason; unknown provider ignored', async () => {
-    const dir = tmpDir();
-    const cfg = new JsonStore(path.join(dir, 'config.json'), defaultConfig());
-    cfg.load();
-    applyPatch(cfg.data, { enrich: { enabled: false } });
-    const n = createEnrich({ configStore: cfg, fetchImpl: async () => { throw new Error('must not be called'); }, logger: { log: () => {}, warn: () => {}, error: () => {}, debug: () => {} } });
-    const r = await n.enrich({ mediaType: 'movie', tmdbId: 1, title: 'T' });
-    assert.equal(r.ok, false);
-    assert.equal(r.reason, 'disabled');
-  });
-});
-
-describe('config migration v2 → v3 (enrich section)', () => {
-  test('old config file gains enrich defaults', () => {
+describe('config migration → v4 (tmdb_export + enrich cleanup)', () => {
+  test('v2 config gains tmdb_export source, loses nothing else', () => {
     const dir = tmpDir();
     fs.writeFileSync(path.join(dir, 'config.json'), JSON.stringify({
       version: 2, tmdb: { apiKey: 'K' }, seerr: { url: 'http://x', apiKey: 'S', tvSeasons: 'all' },
@@ -194,9 +124,9 @@ describe('config migration v2 → v3 (enrich section)', () => {
       filters: {}, sources: {}, scoring: {}, ui: {}, general: {}, notify: { providers: [] }, backups: { maxKeep: 5 },
     }));
     const { cfg } = loadConfig(dir, {});
-    assert.equal(cfg.version, 3);
-    assert.deepEqual(cfg.enrich.providers, ['tmdb', 'imdb', 'tvdb']);
-    assert.equal(cfg.enrich.enabled, true);
-    assert.equal(cfg.tmdb.apiKey, 'K', 'existing values preserved');
+    assert.equal(cfg.version, 4);
+    assert.deepEqual(cfg.sources.tmdb_export, { on: false, weight: 0.9, topN: 150 });
+    assert.equal(cfg.tmdb.apiKey, 'K');
+    assert.equal('enrich' in cfg, false, 'experimental enrich section cleaned up');
   });
 });

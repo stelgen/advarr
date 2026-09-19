@@ -1,12 +1,11 @@
 # Advarr API v1 (internal contract)
 
 ## v0.4.0 additions
-- `GET /api/v1/enrich?type=movie&tmdbId=123&title=…&year=2024` →
-  `{ok, provider, title, year, overview, cast[], directors[], externalIds{imdbId,tvdbId,tmdbId}, attempts[], cached?}` —
-  обогащение метаданными; провайдеры в порядке приоритета из настроек (`enrich.providers`),
-  последующие дозаполняют только недостающие поля; без ключа TMDB работает через IMDb-suggestion
-- `POST /api/v1/enrich/test` ← `{provider, title, mediaType?, year?}` → `{ok, castCount, imdbId?}`
-- config v3: секция `enrich{enabled, providers[], tvdb{apiKey, pin}}` (ключи маскируются)
+- config v4: `sources.tmdb_export = {on, weight, topN}` — источник без API-ключа
+  (официальные публичные выгрузки files.tmdb.org; поля id/title/popularity/vote_average/vote_count/date/adult,
+  без жанров и постеров — жанровые фильтры к кандидата этого источника не применяются)
+- Candidate из этого источника содержит `noGenres: true`
+- Миграция v3 → v4 автоматически (включая чистку экспериментальных секций)
 
 ## v0.3.0 additions
 - `GET /api/v1/backup` → `{items:[{id,name,size,modifiedAt}]}`

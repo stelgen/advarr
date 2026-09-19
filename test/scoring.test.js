@@ -8,6 +8,8 @@ import {
 import { movieRaw, tvRaw, daysAgo } from './helpers.js';
 
 const NOW = Date.parse('2026-09-18T12:00:00Z');
+// date helper anchored to NOW (daysAgo() is wall-clock based → date-dependent flake)
+const nowAgo = (n) => new Date(NOW - n * 86400e3).toISOString();
 
 test('normalizeCandidate maps every raw TMDB field (movie)', () => {
   const c = normalizeCandidate(movieRaw(550, {
@@ -110,19 +112,19 @@ test('passesFilters: adult gate (off by default, opt-in passes)', () => {
 // ---------- freshnessScore ----------
 
 test('freshnessScore: fresh (<90d) = 1', () => {
-  assert.equal(freshnessScore(daysAgo(10), NOW), 1);
-  assert.equal(freshnessScore(daysAgo(89), NOW), 1);
+  assert.equal(freshnessScore(nowAgo(10), NOW), 1);
+  assert.equal(freshnessScore(nowAgo(89), NOW), 1);
 });
 
 test('freshnessScore: 90–180d plateau at 0.85', () => {
-  assert.equal(freshnessScore(daysAgo(90), NOW), 0.85);
-  assert.equal(freshnessScore(daysAgo(179), NOW), 0.85);
+  assert.equal(freshnessScore(nowAgo(90), NOW), 0.85);
+  assert.equal(freshnessScore(nowAgo(179), NOW), 0.85);
 });
 
 test('freshnessScore: linear decay after 180d → 0 at ~3y', () => {
-  const y1 = freshnessScore(daysAgo(365), NOW);
+  const y1 = freshnessScore(nowAgo(365), NOW);
   assert.ok(y1 > 0.7 && y1 < 0.85, `1y decay = ${y1}`);
-  assert.equal(freshnessScore(daysAgo(5 * 365), NOW), 0); // clamped at zero
+  assert.equal(freshnessScore(nowAgo(5 * 365), NOW), 0); // clamped at zero
   assert.equal(freshnessScore('2027-01-01', NOW), 1); // future date → days clamped ≥ 0
 });
 
