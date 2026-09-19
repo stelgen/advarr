@@ -1,0 +1,78 @@
+name: release
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Specific tag to release (e.g. v0.4.0). Empty = backfill all missing.'
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Plan releases
+        id: plan
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            echo "tags=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          elif [ -n "${{ github.event.inputs.tag }}" ]; then
+            echo "tags=${{ github.event.inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            # backfill: every tag without a release, oldest first
+            TAGS=""
+            for t in $(git tag -l 'v*' --sort=version:refname); do
+              if ! gh release view "$t" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+                TAGS="$TAGS $t"
+              fi
+            done
+            echo "tags=${TAGS# }" >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Create releases (notes from CHANGELOG)
+        if: steps.plan.outputs.tags != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for TAG in ${{ steps.plan.outputs.tags }}; do
+            VER="${TAG#v}"
+            # section for this version from CHANGELOG (until the next "## " header)
+            awk -v ver="$VER" '
+              { if ($0 ~ "^## " ver "( |$)") { p=1; next } else if (p && $0 ~ /^## /) { exit } }
+              p { print }
+            ' CHANGELOG.md > notes.md
+            if [ ! -s notes.md ]; then
+              echo "No CHANGELOG section for $VER — using generated notes" > notes.md
+            fi
+            # previous tag → compare link
+            PREV=$(git tag -l 'v*' --sort=version:refname | grep -B1 "^${TAG}$" | head -1 || true)
+            if [ -n "$PREV" ] && [ "$PREV" != "$TAG" ]; then
+              printf '\n---\n**Full changelog**: https://github.com/%s/compare/%s...%s\n' \
+                "$GITHUB_REPOSITORY" "$PREV" "$TAG" >> notes.md
+            fi
+            echo "creating release $TAG"
+            gh release create "$TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "Advarr $TAG" \
+              --notes-file notes.md
+          done
+          # ensure "latest" points to the highest semver
+          LATEST=$(git tag -l 'v*' --sort=-version:refname | head -1)
+          gh release edit "$LATEST" --repo "$GITHUB_REPOSITORY" --latest || true
+
+      - name: Nothing to do
+        if: steps.plan.outputs.tags == ''
+        run: echo "All tagged versions already have releases."
