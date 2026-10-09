@@ -145,6 +145,16 @@ python3 scripts/gen_brand.py   # перегенерация логотипа и 
 
 API-контракт: [docs/API.md](docs/API.md) · Дизайн-референс: Radarr/Sonarr.
 
+### Релизный конвейер
+Пуш тега `v*` запускает release-бота, и GitHub Release создаётся **строго после** зелёного гейта:
+
+1. **Гигиена версии** — тег ↔ `package.json` ↔ `APP_VERSION` в `server.js` ↔ OCI-лейбл Dockerfile ↔ секция CHANGELOG (`scripts/release_hygiene.mjs`).
+2. **Полный тест-ран** — все unit + e2e (node:test, без внешней сети).
+3. **Live e2e артефакта** — собранный образ в изолированной docker-сети: health, security-заголовки, UI-статика, настройки (roundtrip), экспорт/импорт конфига, бэкапы (создание/восстановление/удаление), интеграции Radarr/Sonarr против локальных стабов, live-смена авторизации (apiKey ↔ none), traversal, oversized-body → 413, rate-limit burst → 429, второй инстанс с env-сидированным Basic-Auth (`scripts/release_e2e.mjs`).
+4. **Trivy** — сбор образа блокируется на HIGH/CRITICAL.
+
+Скрипты ботов — zero-deps (`node:` built-ins only) и запускаются локально без сети.
+
 ## Roadmap
 
 - [ ] Учёт просмотренного в Jellyfin при дедупликации
