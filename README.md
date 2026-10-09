@@ -86,13 +86,20 @@ docker run -d --name advarr \
 
 ## Скриншоты
 
-| Обзор | Подборка (dry-run) | Общие (как в Radarr) |
-|---|---|---|
-| ![Обзор](docs/screenshots/overview.png) | ![Подборка](docs/screenshots/discovery.png) | ![Общие](docs/screenshots/settings-general.png) |
+> 🤖 Скриншоты ниже обновляются автоматически ботом `screenshots.yml` при каждом пуше в `main`
+> (детерминированные стабы TMDB/постеров — без внешней сети; устареть они не могут).
 
-| Уведомления | Бэкапы | Источники |
+| Обзор | Подборка (dry-run) | История |
 |---|---|---|
-| ![Уведомления](docs/screenshots/settings-notifications.png) | ![Бэкапы](docs/screenshots/settings-backups.png) | ![Источники](docs/screenshots/settings-sources.png) |
+| ![Обзор](docs/screenshots/overview.png) | ![Подборка](docs/screenshots/discovery.png) | ![История](docs/screenshots/history.png) |
+
+| Radarr / Sonarr | Уведомления | Бэкапы |
+|---|---|---|
+| ![Radarr / Sonarr](docs/screenshots/settings-integrations.png) | ![Уведомления](docs/screenshots/settings-notify.png) | ![Бэкапы](docs/screenshots/settings-backups.png) |
+
+| Источники | Общие (как в Radarr) | Мобильный вид |
+|---|---|---|
+| ![Источники](docs/screenshots/settings-sources.png) | ![Общие](docs/screenshots/settings-general.png) | ![Мобильный вид](docs/screenshots/overview-mobile.png) |
 
 ## Reverse-proxy (nginx/traefik)
 
@@ -144,6 +151,13 @@ python3 scripts/gen_brand.py   # перегенерация логотипа и 
 ```
 
 API-контракт: [docs/API.md](docs/API.md) · Дизайн-референс: Radarr/Sonarr.
+
+### Боты-конвейеры
+- **Скриншоты UI** (`screenshots.yml`): при каждом пуше в `main` бот собирает приложение,
+  снимает все ключевые вкладки (`scripts/ui_shots.py`, Playwright + детерминированные стабы) и
+  коммитит актуальные PNG в `docs/screenshots/` с пометкой `[skip ci]` — README всегда с
+  живым интерфейсом, независимо от релизов.
+- **Релиз-гейт** (`release.yml`): см. ниже.
 
 ### Релизный конвейер
 Пуш тега `v*` запускает release-бота, и GitHub Release создаётся **строго после** зелёного гейта:

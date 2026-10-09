@@ -201,6 +201,8 @@ async function probeHardening() {
     (r) => (r.status === 404 && !r.text.includes('root:') ? true : `status=${r.status}`));
   await expect('unknown API route → 404 json', api('GET', '/api/v1/definitely-missing'),
     (r) => (r.status === 404 && r.json?.error ? true : `status=${r.status}`));
+  await expect('poster proxy rejects bad path → 400', api('GET', '/img/poster?path=..%2Fetc&size=w92'),
+    (r) => (r.status === 400 ? true : `status=${r.status}`));
   await expect('oversized body → 413', rawRequest({
     path: '/api/v1/settings', method: 'PUT',
     headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pad: 'x'.repeat(300 * 1024) }),

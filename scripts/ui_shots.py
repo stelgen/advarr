@@ -1,65 +1,102 @@
 #!/usr/bin/env python3
-"""UI smoke: screenshot all views + capture console/page errors."""
-import json, os, subprocess, sys, time, urllib.request
+"""Advarr UI screenshots bot — captures every README view deterministically.
 
-ROOT = "/home/user/advarr"
-DATA = "/tmp/advarr-shots"
-PORT = 8794
-os.makedirs(f"{ROOT}/docs/screenshots", exist_ok=True)
-os.makedirs(f"{DATA}", exist_ok=True)
+Portable (repo-relative), no external network (scripts/ui_stubs.mjs stubs
+TMDB + posters), seeds history/last-run for lively views. Fails the run on
+JS page errors → doubles as a UI smoke gate. Used by .github/workflows/screenshots.yml.
+"""
+import json, os, subprocess, sys, tempfile, time, urllib.request
+from pathlib import Path
 
-# seed history for a lively history view
-seed = {"items": [
-  {"id": "s1", "at": "2026-09-18T08:12:00Z", "tmdbId": 1011985, "mediaType": "movie", "title": "Кунг-фу Панда 4", "year": 2024, "posterPath": "", "score": 81, "sources": ["trending_week", "popular"], "status": "requested", "error": None},
-  {"id": "s2", "at": "2026-09-18T08:12:05Z", "tmdbId": 872906, "mediaType": "movie", "title": "Oppenheimer", "year": 2023, "posterPath": "", "score": 74, "sources": ["top_rated"], "status": "requested", "error": None},
-  {"id": "s3", "at": "2026-09-18T08:12:10Z", "tmdbId": 237941, "mediaType": "tv", "title": "Падение сокола", "year": 2024, "posterPath": "", "score": 66, "sources": ["trending_day"], "status": "failed", "error": "Seerr 500: radarr unavailable"},
-  {"id": "s4", "at": "2026-09-17T21:40:00Z", "tmdbId": 119051, "mediaType": "tv", "title": "Уэнсдей", "year": 2022, "posterPath": "", "score": 71, "sources": ["popular"], "status": "requested", "error": None},
+ROOT = Path(__file__).resolve().parents[1]
+SHOTS = ROOT / "docs" / "screenshots"
+PORT = int(os.environ.get("ADVARR_SHOTS_PORT", "8794"))
+BASE = f"http://127.0.0.1:{PORT}"
+
+SHOTS.mkdir(parents=True, exist_ok=True)
+DATA = Path(tempfile.mkdtemp(prefix="advarr-shots-"))
+
+# seed history (history view + historyCount on overview)
+seed_history = {"items": [
+  {"id": "s1", "at": "2026-09-18T08:12:00Z", "tmdbId": 693134, "mediaType": "movie", "title": "Дюна: Часть вторая", "year": 2024, "posterPath": "", "score": 92, "sources": ["trending_week", "top_rated"], "status": "requested", "error": None},
+  {"id": "s2", "at": "2026-09-18T08:12:05Z", "tmdbId": 872906, "mediaType": "movie", "title": "Оппенгеймер", "year": 2023, "posterPath": "", "score": 87, "sources": ["top_rated"], "status": "requested", "error": None},
+  {"id": "s3", "at": "2026-09-18T08:12:10Z", "tmdbId": 237941, "mediaType": "tv", "title": "Падение сокола", "year": 2024, "posterPath": "", "score": 74, "sources": ["trending_day"], "status": "failed", "error": "Seerr 500: radarr unavailable"},
+  {"id": "s4", "at": "2026-09-17T21:40:00Z", "tmdbId": 119051, "mediaType": "tv", "title": "Уэнсдей", "year": 2022, "posterPath": "", "score": 81, "sources": ["popular"], "status": "requested", "error": None},
+  {"id": "s5", "at": "2026-09-17T21:40:05Z", "tmdbId": 94605, "mediaType": "tv", "title": "Аркейн", "year": 2021, "posterPath": "", "score": 79, "sources": ["trending_week"], "status": "skipped", "error": None},
 ]}
-json.dump(seed, open(f"{DATA}/history.json", "w"))
+json.dump(seed_history, open(DATA / "history.json", "w"))
+# seed last run (overview + discovery «последний прогон» until a real run happens)
+seed_runs = {"runs": [{
+  "startedAt": "2026-09-18T08:12:00Z", "finishedAt": "2026-09-18T08:12:14Z", "dry": False,
+  "scanned": 262, "passed": 37, "skipped": 225, "requested": 3, "failed": 1, "errors": [],
+  "titles": ["Фильм: Дюна: Часть вторая", "Сериал: Уэнсдей", "Фильм: Кунг-фу Панда 4"],
+}]}
+json.dump(seed_runs, open(DATA / "runs.json", "w"))
 
 proc = subprocess.Popen(
     ["node", "server.js"], cwd=ROOT,
-    env={**os.environ, "ADVARR_DATA_DIR": DATA, "ADVARR_PORT": str(PORT)},
+    env={**os.environ,
+         "ADVARR_DATA_DIR": str(DATA), "ADVARR_PORT": str(PORT),
+         "TMDB_API_KEY": "stub-tmdb-key", "ADVARR_UI_STUBS": "1",
+         "NODE_OPTIONS": "--import ./scripts/ui_stubs.mjs"},
     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-for _ in range(30):
-    try:
-        urllib.request.urlopen(f"http://127.0.0.1:{PORT}/api/v1/health", timeout=1)
-        break
-    except Exception:
-        time.sleep(0.4)
+try:
+    for _ in range(30):
+        try:
+            urllib.request.urlopen(f"{BASE}/api/v1/health", timeout=1)
+            break
+        except Exception:
+            time.sleep(0.4)
 
-from playwright.sync_api import sync_playwright
-errors = []
-with sync_playwright() as p:
-    b = p.chromium.launch()
-    pg = b.new_page(viewport={"width": 1440, "height": 900})
-    pg.on("pageerror", lambda e: errors.append(f"pageerror: {e}"))
-    pg.on("console", lambda m: errors.append(f"console.{m.type}: {m.text}") if m.type == "error" else None)
+    # post-stub sanity: poster proxy must stream a generated image (catches broken /img/poster)
+    with urllib.request.urlopen(f"{BASE}/img/poster?path=/p693134.jpg&size=w92", timeout=15) as r:
+        if r.status != 200 or not r.read(8).startswith(b"\x89PNG"):
+            print("FAIL — poster proxy did not return a PNG image", file=sys.stderr)
+            sys.exit(1)
+        print("poster proxy: ok")
 
-    for name, route in [("overview", "#/overview"), ("discovery", "#/discovery"),
-                        ("history", "#/history"), ("settings", "#/settings"), ("logs", "#/logs")]:
-        pg.goto(f"http://127.0.0.1:{PORT}/{route}")
-        pg.wait_for_timeout(1400)
-        pg.screenshot(path=f"{ROOT}/docs/screenshots/{name}.png")
+    from playwright.sync_api import sync_playwright
+    page_errors = []
+    with sync_playwright() as p:
+        b = p.chromium.launch()
+        pg = b.new_page(viewport={"width": 1440, "height": 900})
+        pg.on("pageerror", lambda e: page_errors.append(f"pageerror: {e}"))
 
-    # settings: sources + scoring tabs
-    pg.goto(f"http://127.0.0.1:{PORT}/#/settings")
-    pg.wait_for_timeout(900)
-    pg.click('button[data-tab="sources"]')
-    pg.wait_for_timeout(500)
-    pg.screenshot(path=f"{ROOT}/docs/screenshots/settings-sources.png")
-    pg.click('button[data-tab="scoring"]')
-    pg.wait_for_timeout(500)
-    pg.screenshot(path=f"{ROOT}/docs/screenshots/settings-scoring.png")
+        def shot(name, route, wait=1400):
+            pg.goto(f"{BASE}/{route}")
+            pg.wait_for_timeout(wait)
+            pg.screenshot(path=SHOTS / f"{name}.png")
+            print(f"captured {name}.png")
 
-    # mobile responsive
-    m = b.new_page(viewport={"width": 420, "height": 860})
-    m.goto(f"http://127.0.0.1:{PORT}/#/overview")
-    m.wait_for_timeout(1200)
-    m.screenshot(path=f"{ROOT}/docs/screenshots/overview-mobile.png")
-    b.close()
+        # main views
+        shot("overview", "#/overview")
+        shot("discovery", "#/discovery", wait=3000)   # dry-run preview + stub TMDB
+        shot("history", "#/history")
+        shot("logs", "#/logs")
 
-proc.terminate()
-print("ERRORS:" if errors else "NO JS ERRORS")
-for e in errors[:10]:
-    print(" ", e)
+        # settings tabs (Radarr order: seerr, integrations, tmdb, ..., notify, backups, general)
+        pg.goto(f"{BASE}/#/settings")
+        pg.wait_for_timeout(1100)
+        for tab in ["integrations", "notify", "backups", "sources", "general"]:
+            pg.click(f'button[data-tab="{tab}"]')
+            pg.wait_for_timeout(600)
+            pg.screenshot(path=SHOTS / f"settings-{tab}.png")
+            print(f"captured settings-{tab}.png")
+
+        # mobile responsive
+        m = b.new_page(viewport={"width": 420, "height": 860})
+        m.on("pageerror", lambda e: page_errors.append(f"pageerror(mobile): {e}"))
+        m.goto(f"{BASE}/#/overview")
+        m.wait_for_timeout(1400)
+        m.screenshot(path=SHOTS / "overview-mobile.png")
+        print("captured overview-mobile.png")
+        b.close()
+finally:
+    proc.terminate()
+
+if page_errors:
+    print(f"FAIL — {len(page_errors)} JS page error(s):", file=sys.stderr)
+    for e in page_errors[:10]:
+        print(" ", e, file=sys.stderr)
+    sys.exit(1)
+print("UI screenshots: all views captured, no JS errors")

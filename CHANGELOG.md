@@ -1,5 +1,25 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+- Постерный прокси `/img/poster` — потерянный импорт `pipeline` из `node:stream/promises`
+  падал с `ReferenceError` на каждом успешном upstream (прокси был нерабочим);
+  добавлена контрактная проверка в release-e2e-боте
+
+### Changed
+- Версия приложения — single source of truth: `server.js` читает её из `package.json`,
+  хардкод `APP_VERSION` убран; release-гигиена теперь проверяет отсутствие хардкода
+- `engines.node` поднят до `>=22` (соответствует Dockerfile/CI/README)
+
+### Added
+- Бот скриншотов UI (`screenshots.yml`): при каждом пуше в `main` снимает все ключевые
+  вкладки (Playwright + детерминированные стабы `scripts/ui_stubs.mjs`, без внешней сети),
+  проверяет отсутствие JS-ошибок и работоспособность постерного прокси, коммитит
+  актуальные PNG в `docs/screenshots/` асинхронно от релизного конвейера
+- Композитное действие `.github/actions/test-suite` — единый шаг «синтаксис + все тесты»
+  для CI и релизного гейта (устранение дублирования)
+
 ## 0.6.0 — 2026-09-19
 
 ### Added

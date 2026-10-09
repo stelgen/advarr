@@ -1,0 +1,55 @@
+name: screenshots
+
+concurrency:
+  group: screenshots
+  cancel-in-progress: true   # always chase the freshest main
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**.md'
+      - 'docs/screenshots/**'
+      - '.github/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  shots:
+    runs-on: ubuntu-24.04   # pinned: ubuntu-latest migrates to Ubuntu 26 in Oct 2026
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Playwright (pinned)
+        run: |
+          pip install "playwright==1.49.1"
+          playwright install --with-deps chromium
+
+      - name: Capture UI screenshots (deterministic stubs, no external network)
+        run: python3 scripts/ui_shots.py
+
+      - name: Commit refreshed screenshots
+        run: |
+          if git diff --quiet docs/screenshots; then
+            echo "Screenshots unchanged — nothing to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/screenshots
+          git commit -m "docs(screenshots): refresh UI screenshots from main [skip ci]"
+          git push
+        env:
+          GH_TOKEN: ${{ github.token }}

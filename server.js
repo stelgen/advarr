@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import net from 'node:net';
 import path from 'node:path';
 import url from 'node:url';
+import { pipeline as _streamPipeline } from 'node:stream/promises';
 
 import { createLogger } from './lib/logs.js';
 import { JsonStore } from './lib/store.js';
@@ -20,8 +21,9 @@ import { makeOutboundFetch } from './lib/proxy.js';
 import { createExporter } from './lib/export.js';
 import { createArrClient } from './lib/radarr.js';
 
-const APP_VERSION = '0.6.0';
 const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
+// single source of version truth: package.json (release_hygiene.mjs guards the rest)
+const APP_VERSION = JSON.parse(fs.readFileSync(path.join(__dirname, 'package.json'), 'utf8')).version;
 const DATA_DIR = process.env.ADVARR_DATA_DIR || path.join(__dirname, 'data');
 
 fs.mkdirSync(DATA_DIR, { recursive: true });

@@ -27,12 +27,10 @@ const server = read('server.js');
 const dockerfile = read('Dockerfile');
 const changelog = read('CHANGELOG.md');
 
-const appVersion = (server.match(/const APP_VERSION = '([\d.]+)';/) || [])[1];
 const dockerVersion = (dockerfile.match(/org\.opencontainers\.image\.version="([\d.]+)"/) || [])[1];
 const bare = tag.replace(/^v/, '');
 
 check('package.json.version == tag', bare === pkg.version, `${pkg.version} vs ${tag}`);
-check('server.js APP_VERSION == tag', bare === appVersion, `${appVersion} vs ${tag}`);
 check('Dockerfile OCI label version == tag', bare === dockerVersion, `${dockerVersion} vs ${tag}`);
 check(
   'CHANGELOG.md has a section for this version',
@@ -40,8 +38,13 @@ check(
   `expected "## ${bare}" header`,
 );
 
-// data integrity: all declared sources must exist and be parseable
-check('version declared in all four sources', Boolean(bare && pkg.version && appVersion && dockerVersion));
+// standardization guard: APP_VERSION must come from package.json (single source of truth),
+// never hardcoded in server.js (drifted silently once — now guarded)
+check(
+  'server.js reads version from package.json (no hardcoded APP_VERSION)',
+  /package\.json/.test(server) && !/APP_VERSION = '\d/.test(server),
+  'found hardcoded literal or missing package.json read',
+);
 
 const failed = results.filter((r) => !r.ok);
 console.log(`\nrelease hygiene: ${results.length - failed.length}/${results.length} checks passed`);

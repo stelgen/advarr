@@ -159,6 +159,18 @@ const tabFilters = (c) => `
     <div class="field"><label class="switch"><input type="checkbox" data-path="filters.checkAvailability" ${c.filters.checkAvailability ? 'checked' : ''}><span class="track"></span>Скипать pending/available (медленнее, точнее)</label></div>
   </div>`;
 
+// источник-метки (fix: srcLabel не существовал с v0.3.0 — вкладка «Источники» падала с ReferenceError;
+// поймано скриншот-ботом через pageerror-гейт)
+const SOURCE_LABELS = {
+  trending_day: 'Тренды дня',
+  trending_week: 'Тренды недели',
+  popular: 'Популярное',
+  top_rated: 'Топ-рейтинг',
+  now_playing: 'Сейчас в кино',
+  upcoming: 'Скоро в кино',
+};
+const srcLabel = (s) => SOURCE_LABELS[s] || s;
+
 const tabSources = (c) => `
   <h3>Источники TMDB</h3>
   <div class="form-grid">
